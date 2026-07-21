@@ -226,7 +226,7 @@ function adapter.spells:VisitSpellbook(visitor)
                         spell_name = GetSpellInfo(slot, BOOKTYPE_SPELL or "spell")
                     end
                     local passive = IsPassiveSpell and IsPassiveSpell(slot, BOOKTYPE_SPELL or "spell")
-                    if spell_name and not passive then visitor("spell", tab_name, spell_name, spell_id) end
+                    if spell_name and not passive then visitor("spell", tab_name, spell_name, spell_id, slot) end
                 end
             end
         end
@@ -241,14 +241,31 @@ function adapter.spells:IsKnown(spell_id)
     if IsSpellKnown then return IsSpellKnown(spell_id) end
     return GetSpellInfo(spell_id) ~= nil
 end
-function adapter.spells:Pickup(spell_id)
-    return PickupSpell(spell_id)
+function adapter.spells:Pickup(spell_id, book_slot, spell_name)
+    if PickupSpellBookItem and book_slot then
+        return PickupSpellBookItem(book_slot, BOOKTYPE_SPELL or "spell")
+    end
+    if PickupSpell then return PickupSpell(spell_name or spell_id) end
 end
 
 adapter.actions = {}
 function adapter.actions:GetSpell(slot)
     local action_type, action_id = GetActionInfo(slot)
     if action_type == "spell" then return action_id end
+end
+function adapter.actions:VisitBindings(visitor)
+    local category = _G.MISCELLANEOUS or "Other"
+    for index = 1, GetNumBindings() do
+        local command = GetBinding(index)
+        if command then
+            local header = command:match("^HEADER_(.+)$")
+            if header then
+                category = _G["BINDING_HEADER_" .. header] or _G[command] or header
+            elseif not command:find("^PREFACE_") and not command:find("HEADER_BLANK") then
+                visitor(category, command, _G["BINDING_NAME_" .. command] or command)
+            end
+        end
+    end
 end
 
 addon.adapters = addon.adapters or {}

@@ -689,7 +689,7 @@ function addon:create_controller_buttons(index)
 
     -- Drag start: pick up action from slot (locked mode only, outside combat).
     controller_button:SetScript("OnDragStart", function(self, mousebutton)
-        if addon.controller_locked ~= false and mousebutton == "LeftButton" then
+        if addon.controller_locked ~= false and (mousebutton == nil or mousebutton == "LeftButton") then
             addon:handle_action_drag(self)
         end
     end)

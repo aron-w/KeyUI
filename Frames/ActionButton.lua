@@ -115,11 +115,18 @@ function addon:SetButtonActionSlot(button, slot)
     button.active_slot = slot
     if not InCombatLockdown() then
         if slot and slot > 0 then
-            button:SetAttribute("type", "action")
+            -- Only left-click executes the action; right-click belongs to KeyUI's menu.
+            button:SetAttribute("type", nil)
+            button:SetAttribute("type1", "action")
+            button:SetAttribute("type2", nil)
             button:SetAttribute("action", slot)
+            button:SetAttribute("action1", slot)
         else
             button:SetAttribute("type", nil)
+            button:SetAttribute("type1", nil)
+            button:SetAttribute("type2", nil)
             button:SetAttribute("action", nil)
+            button:SetAttribute("action1", nil)
         end
     end
 end

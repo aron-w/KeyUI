@@ -657,7 +657,7 @@ function addon:create_keyboard_buttons(index)
 
     -- Drag start: pick up action from slot (locked mode only, outside combat).
     keyboard_button:SetScript("OnDragStart", function(self, mousebutton)
-        if addon.keyboard_locked ~= false and mousebutton == "LeftButton" then
+        if addon.keyboard_locked ~= false and (mousebutton == nil or mousebutton == "LeftButton") then
             addon:handle_action_drag(self)
         end
     end)

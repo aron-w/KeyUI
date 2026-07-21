@@ -96,9 +96,9 @@ function adapter.spells:IsKnown(spell_id)
     if C_SpellBook and C_SpellBook.IsSpellKnown then return C_SpellBook.IsSpellKnown(spell_id) end
     return IsSpellKnown and IsSpellKnown(spell_id) or false
 end
-function adapter.spells:Pickup(spell_id)
+function adapter.spells:Pickup(spell_id, _, spell_name)
     if C_Spell and C_Spell.PickupSpell then return C_Spell.PickupSpell(spell_id) end
-    if PickupSpell then return PickupSpell(spell_id) end
+    if PickupSpell then return PickupSpell(spell_id or spell_name) end
 end
 
 adapter.actions = {}
@@ -106,6 +106,14 @@ function adapter.actions:GetSpell(slot)
     if C_ActionBar and C_ActionBar.GetSpell then return C_ActionBar.GetSpell(slot) end
     local action_type, action_id = GetActionInfo(slot)
     if action_type == "spell" then return action_id end
+end
+function adapter.actions:VisitBindings(visitor)
+    for index = 1, GetNumBindings() do
+        local command, category = GetBinding(index)
+        if command and category and not command:find("^PREFACE_") and not command:find("HEADER_BLANK") then
+            visitor(category, command, _G["BINDING_NAME_" .. command] or command)
+        end
+    end
 end
 
 addon.adapters = addon.adapters or {}

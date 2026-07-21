@@ -151,14 +151,14 @@ local function initialize_keybind_patterns()
         end,
 
         -- Spell
-        ["^Spell (.+)$"] = function(binding, button)
-            local spell_name = binding:match("^Spell (.+)$")
+        ["^[Ss][Pp][Ee][Ll][Ll] (.+)$"] = function(binding, button)
+            local spell_name = binding:match("^[Ss][Pp][Ee][Ll][Ll] (.+)$")
             return addon:process_spell(spell_name, button)
         end,
 
         -- Macro
-        ["^Macro (.+)$"] = function(binding, button)
-            local macro_name = binding:match("^Macro (.+)$")
+        ["^[Mm][Aa][Cc][Rr][Oo] (.+)$"] = function(binding, button)
+            local macro_name = binding:match("^[Mm][Aa][Cc][Rr][Oo] (.+)$")
             return addon:process_macro(macro_name, button)
         end,
     }
@@ -1510,12 +1510,12 @@ function addon:load_spellbook()
     addon.spells = {}
     addon.spells_tab_order = {}  -- preserves API order: General → Class → Spec(s)
 
-    local loaded = addon.ports.spells:VisitSpellbook(function(kind, tab_name, spell_name, spell_id)
+    local loaded = addon.ports.spells:VisitSpellbook(function(kind, tab_name, spell_name, spell_id, book_slot)
         if kind == "tab" then
             addon.spells[tab_name] = addon.spells[tab_name] or {}
             table.insert(addon.spells_tab_order, tab_name)
         elseif kind == "spell" then
-            table.insert(addon.spells[tab_name], { name = spell_name, id = spell_id })
+            table.insert(addon.spells[tab_name], { name = spell_name, id = spell_id, bookSlot = book_slot })
         end
     end)
     if not loaded then
@@ -4552,6 +4552,7 @@ local function build_spells_submenu(parentMenu)
         for _, spell in pairs(addon.spells[tabName] or {}) do
             local spell_name = spell.name
             local spell_id = spell.id
+            local book_slot = spell.bookSlot
 
             -- IMPORTANT: Check spell_id exists BEFORE calling any APIs
             if spell_id then
@@ -4561,7 +4562,7 @@ local function build_spells_submenu(parentMenu)
             if is_known then
                 local spellButton = tabButton:CreateButton(spell_name, function()
                     local key = addon.current_modifier_string .. (addon.current_clicked_key.raw_key or "")
-                    local spell = "Spell " .. spell_name
+                    local spell_binding = "SPELL " .. spell_name
                     local binding_name = addon.current_clicked_key.readable_binding:GetText()
                     local actionbutton = addon.current_clicked_key.binding
                     local targetSlot = addon.current_slot or addon.action_slot_mapping[actionbutton]
@@ -4573,12 +4574,12 @@ local function build_spells_submenu(parentMenu)
                         end
 
                         -- Version-aware spell pickup
-                        addon.ports.spells:Pickup(spell_id)
+                        addon.ports.spells:Pickup(spell_id, book_slot, spell_name)
                         PlaceAction(targetSlot)
                         ClearCursor()
                         print("KeyUI: Bound |cffa335ee" .. spell_name .. "|r to |cffff8000" .. key .. "|r (" .. binding_name .. ")")
                     else
-                        SetBinding(key, spell)
+                        SetBinding(key, spell_binding)
                         SaveBindings(GetCurrentBindingSet())
                         print("KeyUI: Bound |cffa335ee" .. spell_name .. "|r to |cffff8000" .. key .. "|r")
                     end
@@ -4666,7 +4667,7 @@ local function build_macros_submenu(parentMenu)
                 local actionbutton = addon.current_clicked_key.binding
                 local actionSlot = addon.current_slot or addon.action_slot_mapping[actionbutton]
                 local key = addon.current_modifier_string .. (addon.current_clicked_key.raw_key or "")
-                local command = "Macro " .. title
+                local command = "MACRO " .. title
                 local binding_name = addon.current_clicked_key.readable_binding:GetText()
 
                 if actionSlot then
@@ -4713,7 +4714,7 @@ local function build_macros_submenu(parentMenu)
                 local actionbutton = addon.current_clicked_key.binding
                 local actionSlot = addon.current_slot or addon.action_slot_mapping[actionbutton]
                 local key = addon.current_modifier_string .. (addon.current_clicked_key.raw_key or "")
-                local command = "Macro " .. title
+                local command = "MACRO " .. title
                 local binding_name = addon.current_clicked_key.readable_binding:GetText()
 
                 if actionSlot then
@@ -4756,19 +4757,13 @@ local function build_interface_bindings_submenu(parentMenu)
     local categories = {}       -- { [categoryKey] = { {command, readableName}, ... } }
     local category_order = {}   -- preserve WoW's category order
 
-    for i = 1, GetNumBindings() do
-        local command, category = GetBinding(i)
-        if command and category
-            and not command:find("HEADER_BLANK") and not category:find("HEADER_BLANK")
-            and not command:find("^PREFACE_") then
-            if not categories[category] then
-                categories[category] = {}
-                table.insert(category_order, category)
-            end
-            local readable = _G["BINDING_NAME_" .. command] or command
-            table.insert(categories[category], { command, readable })
+    addon.ports.actions:VisitBindings(function(category, command, readable)
+        if not categories[category] then
+            categories[category] = {}
+            table.insert(category_order, category)
         end
-    end
+        table.insert(categories[category], { command, readable })
+    end)
 
     for _, category in ipairs(category_order) do
         local categoryName = _G[category] or category
@@ -4795,15 +4790,15 @@ function addon.context_menu_generator(owner, rootDescription)
     build_spells_submenu(spellsMenu)
 
     -- Macros submenu
-    local macrosMenu = rootDescription:CreateButton(_G["MACRO"])
+    local macrosMenu = rootDescription:CreateButton(_G["MACRO"] or "Macros")
     build_macros_submenu(macrosMenu)
 
     -- Interface Bindings submenu
-    local uiBindMenu = rootDescription:CreateButton(_G["INTERFACE_LABEL"])
+    local uiBindMenu = rootDescription:CreateButton(_G["INTERFACE_LABEL"] or "Interface")
     build_interface_bindings_submenu(uiBindMenu)
 
     -- Unbind action (direct button)
-    rootDescription:CreateButton(_G["UNBIND"], function()
+    rootDescription:CreateButton(_G["UNBIND"] or "Unbind", function()
         if addon.current_clicked_key.raw_key ~= "" then
             SetBinding(addon.current_modifier_string .. (addon.current_clicked_key.raw_key or ""))
             SaveBindings(GetCurrentBindingSet())
