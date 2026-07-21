@@ -3008,6 +3008,63 @@ local function find_keyui_button(frame)
     end
 end
 
+local function ensure_drag_preview()
+    if addon.key_button_drag_preview then return addon.key_button_drag_preview end
+
+    local preview = addon.ports.ui:CreateFrame("Frame", "KeyUIButtonDragPreview", UIParent, "BackdropTemplate")
+    preview:SetSize(190, 34)
+    preview:SetFrameStrata("TOOLTIP")
+    preview:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    preview:SetBackdropColor(0, 0, 0, 0.9)
+
+    preview.icon = preview:CreateTexture(nil, "ARTWORK")
+    preview.icon:SetSize(24, 24)
+    preview.icon:SetPoint("LEFT", preview, "LEFT", 6, 0)
+
+    preview.text = preview:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    preview.text:SetPoint("LEFT", preview.icon, "RIGHT", 6, 0)
+    preview.text:SetWidth(148)
+    preview.text:SetJustifyH("LEFT")
+
+    preview:SetScript("OnUpdate", function(self)
+        local x, y = GetCursorPosition()
+        local scale = UIParent:GetScale()
+        self:ClearAllPoints()
+        self:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x / scale + 14, y / scale + 14)
+    end)
+    preview:Hide()
+    addon.key_button_drag_preview = preview
+    return preview
+end
+
+local function show_drag_preview(button)
+    local preview = ensure_drag_preview()
+    local texture = button.icon and button.icon.GetTexture and button.icon:GetTexture()
+    if texture then
+        preview.icon:SetTexture(texture)
+        preview.icon:Show()
+    else
+        preview.icon:SetTexture(nil)
+        preview.icon:Hide()
+    end
+
+    local label = button.readable_binding and button.readable_binding:GetText()
+    if not label or label == "" then label = button.binding or button.raw_key or "Binding" end
+    preview.text:SetText(label)
+    preview:Show()
+end
+
+local function hide_drag_preview()
+    if addon.key_button_drag_preview then addon.key_button_drag_preview:Hide() end
+end
+
 function addon:begin_key_button_drag(button)
     if InCombatLockdown() or not button then return end
 
@@ -3021,6 +3078,8 @@ function addon:begin_key_button_drag(button)
 
     if button.slot then
         self:handle_action_drag(button)
+    elseif self.key_button_drag.directBinding then
+        show_drag_preview(button)
     end
 end
 
@@ -3050,6 +3109,18 @@ function addon:complete_key_button_drop(target)
         self:handle_action_drag(target)
         if drag then drag.handled = true end
         return true
+    elseif cursor_kind then
+        local target_key = get_button_binding_key(target)
+        local binding, label = self.ports.actions:GetCursorBinding()
+        if target_key and binding then
+            SetBinding(target_key, binding)
+            SaveBindings(GetCurrentBindingSet())
+            ClearCursor()
+            if drag then drag.handled = true end
+            self:refresh_keys()
+            print("KeyUI: Bound |cffa335ee" .. (label or binding) .. "|r to |cffff8000" .. target_key .. "|r")
+            return true
+        end
     end
     return false
 end
@@ -3064,6 +3135,7 @@ function addon:finish_key_button_drag()
             self:complete_key_button_drop(target)
         end
     end
+    hide_drag_preview()
     self.key_button_drag = nil
 end
 

@@ -119,6 +119,16 @@ function adapter.actions:VisitBindings(visitor)
         end
     end
 end
+function adapter.actions:GetCursorBinding()
+    local cursor_type, data = GetCursorInfo()
+    if cursor_type == "spell" and data then
+        local name, icon = addon.ports.spells:GetInfo(data)
+        if name then return "SPELL " .. name, name, icon end
+    elseif cursor_type == "macro" and data then
+        local name, icon = GetMacroInfo(data)
+        if name then return "MACRO " .. name, name, icon end
+    end
+end
 
 addon.adapters = addon.adapters or {}
 addon.adapters.modern = adapter

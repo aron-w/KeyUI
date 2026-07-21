@@ -270,6 +270,22 @@ function adapter.actions:VisitBindings(visitor)
         end
     end
 end
+function adapter.actions:GetCursorBinding()
+    local cursor_type, data, book_type = GetCursorInfo()
+    if cursor_type == "spell" and data then
+        local name, icon
+        if book_type and GetSpellBookItemInfo then
+            local _, spell_id = GetSpellBookItemInfo(data, book_type)
+            if spell_id then name, _, icon = GetSpellInfo(spell_id) end
+        end
+        if not name then name, _, icon = GetSpellInfo(data, book_type) end
+        if not name then name, _, icon = GetSpellInfo(data) end
+        if name then return "SPELL " .. name, name, icon end
+    elseif cursor_type == "macro" and data then
+        local name, icon = GetMacroInfo(data)
+        if name then return "MACRO " .. name, name, icon end
+    end
+end
 
 addon.adapters = addon.adapters or {}
 addon.adapters.wotlk_ascension = adapter
