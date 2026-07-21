@@ -6,17 +6,19 @@ KeyUI Ascension visualizes and edits keyboard and mouse bindings inside the game
 
 The original KeyUI addon was created by **Blandros**. This repository is an Ascension-focused fork and is not the upstream CurseForge, WoWInterface, or Wago release.
 
-## Ascension fork highlights
+<p align="center">
+  <img src="https://i.imgur.com/5Fxy5QZ.jpeg" alt="KeyUI keyboard binding overview" width="66%">
+  <img src="https://i.imgur.com/NDP7KZa.jpeg" alt="KeyUI mouse binding overview" width="31%">
+</p>
 
-- Runs on Ascension's WotLK 3.3.5a client (`Interface 30300`).
-- Opens without clearing existing bindings or replacing saved KeyUI layouts.
-- Displays keyboard and mouse bindings, including Mouse Buttons 4 and 5.
-- Supports direct spell, macro, and UI-action bindings.
-- Supports action-slot drag and drop, including KeyUI-to-KeyUI moves.
-- Provides right-click menus for spells, macros, UI actions, and OPie rings.
-- Preserves Ascension spell ranks, spellbook icons, and direct-spell tooltips.
-- Uses legacy, screen-sized dropdown pages for long binding lists.
-- Uses a WotLK-compatible settings panel, widget templates, cooldown data, timers, and menus.
+## Features
+
+- Visualize your keyboard and mouse bindings at a glance.
+- Assign spells, macros, Interface actions, and OPie rings from a key's right-click menu.
+- Drag actions onto keys or reorganize them directly inside KeyUI.
+- Choose from layouts for standard keyboards, keypads, and gaming mice, then customize them to match your setup.
+- See action icons, spell ranks, tooltips, modifier layers, and clearly distinguished unbound keys.
+- Built specifically for Project Ascension's WotLK 3.3.5a client.
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete migration summary and current limitations.
 
