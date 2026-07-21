@@ -270,32 +270,43 @@ function adapter.spells:VisitSpellbook(visitor)
 
                 local normalized_type = type(item_type) == "string" and item_type:upper() or nil
                 if normalized_type ~= "FLYOUT" then
-                    local spell_name
-                    local spell_id = type(item_data) == "number" and item_data
-                        or type(item_id) == "number" and item_id
+                    local spell_name, spell_rank, spell_icon, spell_id
+
+                    -- Prefer the spellbook-index APIs. Ascension can return a
+                    -- numeric item value that is not a globally resolvable ID.
+                    if GetSpellBookItemName then
+                        spell_name, spell_rank = GetSpellBookItemName(slot, book_type)
+                    end
+                    if not spell_name and GetSpellName then
+                        spell_name, spell_rank = GetSpellName(slot, book_type)
+                    end
+                    if GetSpellTexture then
+                        spell_icon = GetSpellTexture(slot, book_type)
+                    end
+
+                    local slot_name, slot_rank, slot_icon, _, _, _, slot_id = GetSpellInfo(slot, book_type)
+                    spell_name = spell_name or slot_name
+                    spell_rank = spell_rank or slot_rank
+                    spell_icon = spell_icon or slot_icon
+                    spell_id = slot_id
 
                     -- Stock 3.3.5 returns a type and ID. Ascension builds have
                     -- also returned name/rank/ID and lowercase type variants.
                     if normalized_type ~= "SPELL" and normalized_type ~= "FUTURESPELL"
                         and type(item_type) == "string" and item_type ~= "" then
-                        spell_name = item_type
+                        spell_name = spell_name or item_type
+                        if type(item_data) == "string" then spell_rank = spell_rank or item_data end
                     end
 
-                    if spell_id then
-                        local resolved_name, _, _, _, _, _, resolved_id = GetSpellInfo(spell_id)
+                    local candidate_id = type(item_id) == "number" and item_id
+                        or (normalized_type == "SPELL" or normalized_type == "FUTURESPELL")
+                            and type(item_data) == "number" and item_data
+                    if candidate_id and (not spell_name or not spell_icon or not spell_id) then
+                        local resolved_name, resolved_rank, resolved_icon, _, _, _, resolved_id = GetSpellInfo(candidate_id)
                         spell_name = resolved_name or spell_name
-                        spell_id = resolved_id or spell_id
-                    end
-                    if not spell_name then
-                        local resolved_name, _, _, _, _, _, resolved_id = GetSpellInfo(slot, book_type)
-                        spell_name = resolved_name
-                        spell_id = resolved_id or spell_id
-                    end
-                    if not spell_name and GetSpellBookItemName then
-                        spell_name = GetSpellBookItemName(slot, book_type)
-                    end
-                    if not spell_name and GetSpellName then
-                        spell_name = GetSpellName(slot, book_type)
+                        spell_rank = resolved_rank or spell_rank
+                        spell_icon = resolved_icon or spell_icon
+                        spell_id = spell_id or resolved_id or candidate_id
                     end
 
                     local passive = false
@@ -304,7 +315,7 @@ function adapter.spells:VisitSpellbook(visitor)
                         passive = ok and result == true
                     end
                     if spell_name and not passive then
-                        visitor("spell", tab_name, spell_name, spell_id, slot)
+                        visitor("spell", tab_name, spell_name, spell_id, slot, spell_rank, spell_icon)
                     end
                 end
             end

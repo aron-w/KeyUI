@@ -1510,12 +1510,18 @@ function addon:load_spellbook()
     addon.spells = {}
     addon.spells_tab_order = {}  -- preserves API order: General → Class → Spec(s)
 
-    local loaded = addon.ports.spells:VisitSpellbook(function(kind, tab_name, spell_name, spell_id, book_slot)
+    local loaded = addon.ports.spells:VisitSpellbook(function(kind, tab_name, spell_name, spell_id, book_slot, spell_rank, spell_icon)
         if kind == "tab" then
             addon.spells[tab_name] = addon.spells[tab_name] or {}
             table.insert(addon.spells_tab_order, tab_name)
         elseif kind == "spell" then
-            table.insert(addon.spells[tab_name], { name = spell_name, id = spell_id, bookSlot = book_slot })
+            table.insert(addon.spells[tab_name], {
+                name = spell_name,
+                id = spell_id,
+                bookSlot = book_slot,
+                rank = spell_rank,
+                icon = spell_icon,
+            })
         end
     end)
     if not loaded then
@@ -4740,11 +4746,18 @@ local function build_spells_submenu(parentMenu)
             local spell_name = spell.name
             local spell_id = spell.id
             local book_slot = spell.bookSlot
-            local spell_identifier = spell_id or spell_name or book_slot
-            local _, spell_icon = addon.ports.spells:GetInfo(spell_identifier)
+            local spell_rank = spell.rank
+            local spell_icon = spell.icon
+            if not spell_icon then
+                local spell_identifier = spell_name or spell_id or book_slot
+                local _, resolved_icon = addon.ports.spells:GetInfo(spell_identifier)
+                spell_icon = resolved_icon
+            end
 
             if spell_name then
-                local spellButton = tabButton:CreateButton(spell_name, function()
+                local spell_label = spell_rank and spell_rank ~= ""
+                    and (spell_name .. " (" .. spell_rank .. ")") or spell_name
+                local spellButton = tabButton:CreateButton(spell_label, function()
                     local key = addon.current_modifier_string .. (addon.current_clicked_key.raw_key or "")
                     local spell_binding = "SPELL " .. spell_name
                     local binding_name = addon.current_clicked_key.readable_binding:GetText()

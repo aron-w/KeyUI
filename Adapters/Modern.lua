@@ -79,7 +79,7 @@ function adapter.spells:VisitSpellbook(visitor)
                 for slot = tab.itemIndexOffset + 1, tab.itemIndexOffset + tab.numSpellBookItems do
                     local info = C_SpellBook.GetSpellBookItemInfo(slot, Enum.SpellBookSpellBank.Player)
                     if info and info.name and not info.isPassive then
-                        visitor("spell", tab.name, info.name, info.spellID)
+                        visitor("spell", tab.name, info.name, info.spellID, slot, info.subName, info.iconID)
                     end
                 end
             end
