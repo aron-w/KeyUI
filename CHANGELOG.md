@@ -17,6 +17,7 @@ This changelog summarizes the Ascension WotLK 3.3.5a migration performed on the 
 
 - Opening KeyUI no longer disables every key binding.
 - Closing KeyUI no longer leaves bindings disabled.
+- Keyboard, mouse, and controller Close buttons can hide their protected windows during combat.
 - The minimap button no longer resets selected devices or saved layouts to `none`.
 - Existing settings and layouts are preserved and repaired when a stale selection is detected.
 - Default layouts are seeded without overwriting existing user configuration.

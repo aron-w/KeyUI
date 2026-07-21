@@ -356,8 +356,8 @@ end
 -- - Uses BOTTOMLEFT/BOTTOMRIGHT anchors (not TOPLEFT!)
 -- - Vertically flipped texture coords (vMax, vMin instead of vMin, vMax)
 -- - 75% height of normal tabs
-function addon:CreateTopTabButton(parent)
-    local button = addon.ports.ui:CreateFrame("Button", nil, parent)
+function addon:CreateTopTabButton(parent, template)
+    local button = addon.ports.ui:CreateFrame("Button", nil, parent, template)
     button:SetSize(115, 32)
 
     local TOP_TAB_HEIGHT_PERCENT = 0.75
@@ -492,8 +492,8 @@ function addon:CreateCloseButton(parent)
 end
 
 -- Creates exit button using 128redbutton atlas (matches ArrowDownButton style)
-function addon:CreateExitButton(parent)
-    local button = addon.ports.ui:CreateFrame("Button", nil, parent)
+function addon:CreateExitButton(parent, template)
+    local button = addon.ports.ui:CreateFrame("Button", nil, parent, template)
     button:SetSize(24, 24)
 
     local texture_path = "Interface\\AddOns\\KeyUI\\Media\\Atlas\\128redbutton"
@@ -567,4 +567,3 @@ function addon:CreateArrowUpButton(parent)
 
     return button
 end
-

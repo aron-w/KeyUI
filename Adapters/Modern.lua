@@ -16,6 +16,12 @@ function adapter.ui:GetMouseFocus()
     if GetMouseFoci then return GetMouseFoci() end
     if GetMouseFocus then return GetMouseFocus() end
 end
+function adapter.ui:GetCombatCloseTemplate()
+    return nil
+end
+function adapter.ui:ConfigureCombatClose()
+    return false
+end
 
 adapter.timers = {}
 function adapter.timers:After(delay, callback)

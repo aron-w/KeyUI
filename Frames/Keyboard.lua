@@ -117,11 +117,15 @@ function addon:create_keyboard_frame()
     -- Get Keyboard Frame Level
     local keyboard_level = addon.keyboard_frame:GetFrameLevel()
 
-    -- Create the close tab button
+    -- Ascension uses a secure click handler so this protected parent can be
+    -- hidden from the close button during combat.
+    local combat_close_template = addon.ports.ui:GetCombatCloseTemplate()
     if USE_ATLAS then
-        keyboard_frame.close_button = addon.ports.ui:CreateFrame("Button", nil, keyboard_frame, "PanelTopTabButtonTemplate")
+        local templates = "PanelTopTabButtonTemplate"
+        if combat_close_template then templates = templates .. ", " .. combat_close_template end
+        keyboard_frame.close_button = addon.ports.ui:CreateFrame("Button", nil, keyboard_frame, templates)
     else
-        keyboard_frame.close_button = addon:CreateTopTabButton(keyboard_frame)
+        keyboard_frame.close_button = addon:CreateTopTabButton(keyboard_frame, combat_close_template)
     end
     keyboard_frame.close_button:SetPoint("BOTTOMRIGHT", keyboard_frame, "TOPRIGHT", -8, 0)
     keyboard_frame.close_button:SetFrameLevel(keyboard_level - 1)
@@ -137,12 +141,15 @@ function addon:create_keyboard_frame()
     text:SetPoint("BOTTOM", keyboard_frame.close_button, "BOTTOM", 0, 4)
     text:SetTextColor(1, 1, 1) -- Set text color to white
 
+    local has_secure_combat_close = addon.ports.ui:ConfigureCombatClose(keyboard_frame.close_button, keyboard_frame)
     keyboard_frame.close_button:SetScript("OnClick", function(s)
         addon:discard_keyboard_changes()
         if addon.controls_frame then
             addon.controls_frame:Hide()
         end
-        addon:SafeHideFrame(keyboard_frame)
+        if not has_secure_combat_close then
+            addon:SafeHideFrame(keyboard_frame)
+        end
     end)
 
     toggle_button_textures(keyboard_frame.close_button, true)

@@ -69,15 +69,20 @@ function addon:create_mouse_image()
     mouse_image.Texture:SetPoint("CENTER", mouse_image, "CENTER", 0, 0)
     mouse_image.Texture:SetSize(390, 390)
 
-    -- Create close button
-    mouse_image.close_button = addon:CreateExitButton(mouse_image)
+    -- Ascension uses a secure click handler so this protected parent can be
+    -- hidden from the close button during combat.
+    local combat_close_template = addon.ports.ui:GetCombatCloseTemplate()
+    mouse_image.close_button = addon:CreateExitButton(mouse_image, combat_close_template)
     mouse_image.close_button:SetPoint("TOPRIGHT", mouse_image, "TOPRIGHT", 0, 0)
+    local has_secure_combat_close = addon.ports.ui:ConfigureCombatClose(mouse_image.close_button, mouse_image)
     mouse_image.close_button:SetScript("OnClick", function(s)
         addon:discard_mouse_changes()
         if addon.controls_frame then
             addon.controls_frame:Hide()
         end
-        addon:SafeHideFrame(mouse_image)
+        if not has_secure_combat_close then
+            addon:SafeHideFrame(mouse_image)
+        end
     end)
 
     -- Create edit mode glow border frame

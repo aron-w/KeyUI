@@ -187,6 +187,21 @@ end
 function adapter.ui:GetMouseFocus()
     return GetMouseFocus and GetMouseFocus() or nil
 end
+function adapter.ui:GetCombatCloseTemplate()
+    return "SecureHandlerClickTemplate"
+end
+function adapter.ui:ConfigureCombatClose(button, target)
+    if not button or not target or not button.SetFrameRef or not button.SetAttribute then
+        return false
+    end
+
+    button:SetFrameRef("KeyUICombatCloseTarget", target)
+    button:SetAttribute("_onclick", [[
+        local target = self:GetFrameRef("KeyUICombatCloseTarget")
+        if target then target:Hide() end
+    ]])
+    return true
+end
 
 adapter.timers = {}
 function adapter.timers:After(delay, callback)
