@@ -21,6 +21,7 @@ Ports\Game.lua
 Adapters\Modern.lua
 Adapters\WotLKAscension.lua
 Ports\Bootstrap.lua
+Ports\OPie.lua
 Mappings.lua
 UIHelpers.lua
 Layouts\Keyboard.lua

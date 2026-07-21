@@ -3954,7 +3954,8 @@ end
 -- Handles processing for OPie ring bindings
 function addon:process_opie(button)
     -- Assign the OPie ring icon to the button
-    local opie_icon = "Interface\\AddOns\\OPie\\gfx\\opie_ring_icon.tga"
+    local opie_icon = addon.ports.opie and addon.ports.opie:GetIcon()
+        or "Interface\\AddOns\\OPie\\gfx\\icon.tga"
     button.icon:SetTexture(opie_icon)   -- Set the texture to the OPie ring icon
     button.icon:Show()                  -- Display the icon on the button
 end
@@ -4917,6 +4918,7 @@ local function build_interface_bindings_submenu(parentMenu)
     local category_order = {}   -- preserve WoW's category order
 
     addon.ports.actions:VisitBindings(function(category, command, readable)
+        if matches_opie_binding(command) then return end
         if not categories[category] then
             categories[category] = {}
             table.insert(category_order, category)
@@ -4942,6 +4944,53 @@ local function build_interface_bindings_submenu(parentMenu)
     end
 end
 
+local function add_menu_icon(menu_button, texture)
+    if not menu_button or not texture then return end
+    menu_button:AddInitializer(function(button)
+        if not button.AttachTexture then return end
+        local icon = button:AttachTexture()
+        icon:SetSize(16, 16)
+        icon:SetPoint("LEFT", button, "LEFT", 4, 0)
+        icon:SetTexture(texture)
+        if button.fontString then
+            button.fontString:ClearAllPoints()
+            button.fontString:SetPoint("LEFT", icon, "RIGHT", 4, 0)
+        end
+    end)
+end
+
+local function add_opie_bindings_menu(rootDescription)
+    local port = addon.ports.opie
+    if not port or not port:IsAvailable() then return end
+
+    local rings = {}
+    port:VisitRings(function(index, name, slices)
+        table.insert(rings, { index = index, name = name, slices = slices })
+    end)
+    if #rings == 0 then return end
+
+    local icon = port:GetIcon()
+    local opieMenu = rootDescription:CreateButton("OPie")
+    add_menu_icon(opieMenu, icon)
+
+    for _, ring in ipairs(rings) do
+        local ring_index = ring.index
+        local ring_name = ring.name
+        local label = ring.slices > 0 and (ring_name .. " (" .. ring.slices .. ")") or ring_name
+        local ringButton = opieMenu:CreateButton(label, function()
+            local key = addon.current_modifier_string .. (addon.current_clicked_key.raw_key or "")
+            local ok, err = port:BindRing(ring_index, key)
+            if not ok then
+                print("KeyUI: " .. (err or "Unable to bind OPie ring."))
+                return
+            end
+            addon.ports.timers:After(0, function() addon:refresh_keys() end)
+            print("KeyUI: Bound OPie ring |cffa335ee" .. ring_name .. "|r to |cffff8000" .. key .. "|r")
+        end)
+        add_menu_icon(ringButton, icon)
+    end
+end
+
 -- Main context menu generator for MenuUtil
 function addon.context_menu_generator(owner, rootDescription)
     -- Spells submenu
@@ -4951,6 +5000,9 @@ function addon.context_menu_generator(owner, rootDescription)
     -- Macros submenu
     local macrosMenu = rootDescription:CreateButton(_G["MACRO"] or "Macros")
     build_macros_submenu(macrosMenu)
+
+    -- OPie rings use OneRingLib's binding API rather than Blizzard SetBinding.
+    add_opie_bindings_menu(rootDescription)
 
     -- Interface Bindings submenu
     local uiBindMenu = rootDescription:CreateButton(_G["INTERFACE_LABEL"] or "Interface")
