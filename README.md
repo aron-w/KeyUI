@@ -30,6 +30,8 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete migration summary and current 
 4. Drag spells or macros from their normal game UI onto a KeyUI key.
 5. Drag one KeyUI binding onto another KeyUI key to move or swap it.
 
+To assign a global toggle hotkey, open **Main Menu → Key Bindings → KeyUI** and bind **Toggle KeyUI**.
+
 Changes use the active Blizzard binding set and are saved through the normal WoW binding APIs.
 
 ## Right-click binding menus

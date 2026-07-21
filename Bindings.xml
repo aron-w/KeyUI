@@ -1,0 +1,3 @@
+<Bindings xmlns="http://www.blizzard.com/wow/ui/">
+    <Binding name="CLICK KeyUIGlobalToggleButton:LeftButton" header="KEYUI" />
+</Bindings>

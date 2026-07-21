@@ -327,6 +327,79 @@ function addon:OpenSettings()
     end
 end
 
+local function is_keyui_visible()
+    if addon.open == true then
+        return true
+    end
+    return addon.selection_frame and addon.selection_frame:IsShown()
+end
+
+function addon:Toggle()
+    if is_keyui_visible() then
+        addon:hide_all_frames()
+        return
+    end
+
+    if InCombatLockdown() then
+        print("KeyUI: Cannot open while in combat.")
+        return
+    end
+
+    addon:load()
+end
+
+-- Bindings.xml exposes this named secure button as a CLICK binding. The secure
+-- snippet hides protected visualization frames in combat; the insecure script
+-- handles normal opening and closes any remaining unprotected windows.
+BINDING_HEADER_KEYUI = "KeyUI"
+_G["BINDING_NAME_CLICK KeyUIGlobalToggleButton:LeftButton"] = "Toggle KeyUI"
+
+local global_toggle_button = addon.ports.ui:CreateFrame(
+    "Button",
+    "KeyUIGlobalToggleButton",
+    UIParent,
+    "SecureHandlerClickTemplate"
+)
+global_toggle_button:SetAttribute("_onclick", [[
+    local wasOpen = false
+    local frame = self:GetFrameRef("KeyUIKeyboardFrame")
+    if frame and frame:IsShown() then
+        wasOpen = true
+        frame:Hide()
+    end
+    frame = self:GetFrameRef("KeyUIMouseFrame")
+    if frame and frame:IsShown() then
+        wasOpen = true
+        frame:Hide()
+    end
+    frame = self:GetFrameRef("KeyUIMouseImage")
+    if frame and frame:IsShown() then
+        wasOpen = true
+        frame:Hide()
+    end
+    frame = self:GetFrameRef("KeyUIControllerFrame")
+    if frame and frame:IsShown() then
+        wasOpen = true
+        frame:Hide()
+    end
+    self:SetAttribute("KeyUIWasOpen", wasOpen)
+]])
+global_toggle_button:HookScript("PostClick", function(self)
+    if self:GetAttribute("KeyUIWasOpen") then
+        addon:hide_all_frames()
+    else
+        addon:Toggle()
+    end
+end)
+
+function addon:RegisterGlobalToggleFrame(reference_name, frame)
+    if not reference_name or not frame or InCombatLockdown() then
+        return false
+    end
+    global_toggle_button:SetFrameRef(reference_name, frame)
+    return true
+end
+
 -- Minimap button setup using LibDataBroker
 local miniButton = LDB:NewDataObject("KeyUI", {
     type = "data source",
@@ -334,19 +407,7 @@ local miniButton = LDB:NewDataObject("KeyUI", {
     icon = "Interface\\AddOns\\KeyUI\\Media\\keyui_icon.blp",
     OnClick = function(self, btn)
         if btn == "LeftButton" then
-            if addon.open == true then
-                -- Close is safe in combat via SafeHideFrame (deferred).
-                addon:hide_all_frames()
-            else
-                -- Opening requires no combat lockdown: Show on frames with
-                -- SecureActionButtonTemplate children is blocked during combat.
-                -- stay_open_in_combat only governs auto-close, not opening.
-                if InCombatLockdown() then
-                    print("KeyUI: Cannot open while in combat.")
-                else
-                    addon:load()
-                end
-            end
+            addon:Toggle()
         elseif btn == "RightButton" then
             -- Open the Blizzard settings page (Midnight 12.0+ compatibility)
             addon:OpenSettings()
@@ -1544,6 +1605,7 @@ end
 -- Parent frames of SecureActionButtonTemplate buttons cannot be hidden during combat.
 function addon:SafeHideFrame(frame)
     if not frame then return end
+    if frame.IsShown and not frame:IsShown() then return end
     if InCombatLockdown() then
         if not addon.combat_hide_queue then
             addon.combat_hide_queue = {}
@@ -2229,10 +2291,12 @@ end
 
 -- Hides all UI elements when the addon is closed
 function addon:hide_all_frames()
-    local keyboard_frame = addon:get_keyboard_frame()
-    local mouse_image = addon:get_mouse_image()
-    local mouse_frame = addon:get_mouse_frame()
-    local controller_frame = addon:get_controller_frame()
+    -- Closing should never instantiate new protected frames, especially while
+    -- combat lockdown is active.
+    local keyboard_frame = addon.keyboard_frame
+    local mouse_image = addon.mouse_image
+    local mouse_frame = addon.mouse_frame
+    local controller_frame = addon.controller_frame
 
     addon:SafeHideFrame(keyboard_frame)
     addon:SafeHideFrame(mouse_frame)
@@ -2293,6 +2357,7 @@ function addon:get_keyboard_frame()
     if not addon.keyboard_frame then
         -- Create the keyboard frame and assign it to the addon table
         addon.keyboard_frame = addon:create_keyboard_frame()
+        addon:RegisterGlobalToggleFrame("KeyUIKeyboardFrame", addon.keyboard_frame)
 
         addon.keyboard_frame:SetScript("OnHide", function()
             addon:save_keyboard_position()
@@ -2313,6 +2378,7 @@ function addon:get_mouse_image()
     if not addon.mouse_image then
         -- Create the mouse image and assign it to the addon table
         addon.mouse_image = addon:create_mouse_image()
+        addon:RegisterGlobalToggleFrame("KeyUIMouseImage", addon.mouse_image)
 
         addon.mouse_image:SetScript("OnHide", function()
             addon:save_mouse_position()
@@ -2331,6 +2397,7 @@ end
 function addon:get_mouse_frame()
     if not addon.mouse_frame then
         addon.mouse_frame = addon:create_mouse_frame()
+        addon:RegisterGlobalToggleFrame("KeyUIMouseFrame", addon.mouse_frame)
     end
     return addon.mouse_frame
 end
@@ -2341,6 +2408,7 @@ function addon:get_controller_frame()
     if not addon.controller_frame then
         -- Create the controller frame and assign it to the addon table
         addon.controller_frame = addon:create_controller_frame()
+        addon:RegisterGlobalToggleFrame("KeyUIControllerFrame", addon.controller_frame)
 
         addon.controller_frame:SetScript("OnHide", function()
             addon:save_controller_position()
@@ -5457,13 +5525,14 @@ local function print_keyui_command_help()
     print("KeyUI: /keyui perf [on|off|reset]")
     print("KeyUI: /keyui diag [limit]")
     print("KeyUI: /keyui diagreset")
-    print("KeyUI: To configure a hotkey, open KeyUI and right-click a displayed key.")
+    print("KeyUI: Assign Toggle KeyUI under Main Menu > Key Bindings > KeyUI.")
+    print("KeyUI: To configure other hotkeys, open KeyUI and right-click a displayed key.")
 end
 
 SlashCmdList["KeyUI"] = function(msg)
     local trimmed = type(msg) == "string" and msg:match("^%s*(.-)%s*$") or ""
     if trimmed == "" then
-        addon:load()
+        addon:Toggle()
         return
     end
 
@@ -5477,7 +5546,11 @@ SlashCmdList["KeyUI"] = function(msg)
     end
 
     if command == "open" or command == "toggle" then
-        addon:load()
+        if command == "toggle" then
+            addon:Toggle()
+        else
+            addon:load()
+        end
         return
     end
 
