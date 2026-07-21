@@ -2481,15 +2481,19 @@ function addon:button_mouse_over(button)
         GameTooltip:SetPoint("TOPLEFT", button, "BOTTOMLEFT")
         GameTooltip:SetAction(addon.current_hovered_button.active_slot) -- Use SetAction for ActionButtons
         GameTooltip:Show()
-    elseif addon.current_hovered_button.spellid then
+    elseif addon.current_hovered_button.spellid or addon.current_hovered_button.spell_book_slot then
         GameTooltip:SetOwner(addon.current_hovered_button, "ANCHOR_NONE")
         GameTooltip:SetPoint("TOPLEFT", button, "BOTTOMLEFT")
-        if GameTooltip.SetSpellByID then
-            GameTooltip:SetSpellByID(addon.current_hovered_button.spellid)
+        local shown = addon.ports.spells:SetTooltip(
+            GameTooltip,
+            addon.current_hovered_button.spellid,
+            addon.current_hovered_button.spell_book_slot
+        )
+        if shown then
+            GameTooltip:Show()
         else
-            GameTooltip:SetHyperlink("spell:" .. addon.current_hovered_button.spellid)
+            GameTooltip:Hide()
         end
-        GameTooltip:Show()
     elseif addon.current_hovered_button.pet_action_index then
         GameTooltip:SetOwner(addon.current_hovered_button, "ANCHOR_NONE")
         GameTooltip:SetPoint("TOPLEFT", button, "BOTTOMLEFT")
@@ -2664,6 +2668,7 @@ function addon:reset_button_state(button)
     button.slot = nil
     addon:SetButtonActionSlot(button, nil)
     button.spellid = nil
+    button.spell_book_slot = nil
     button.pet_action_index = nil
     button.binding = nil
     button.is_active = nil
@@ -3447,7 +3452,27 @@ end
 function addon:process_spell(spell_name, button)
     if not spell_name then return end
 
+    local cached_spell
+    for _, tab_name in ipairs(addon.spells_tab_order or {}) do
+        for _, spell in ipairs((addon.spells and addon.spells[tab_name]) or {}) do
+            local ranked_name = spell.rank and spell.rank ~= ""
+                and (spell.name .. "(" .. spell.rank .. ")") or spell.name
+            local spaced_ranked_name = spell.rank and spell.rank ~= ""
+                and (spell.name .. " (" .. spell.rank .. ")") or spell.name
+            if spell.name == spell_name or ranked_name == spell_name or spaced_ranked_name == spell_name then
+                cached_spell = spell
+                break
+            end
+        end
+        if cached_spell then break end
+    end
+
     local _, spell_icon, spellID = addon.ports.spells:GetInfo(spell_name)
+    if cached_spell then
+        spell_icon = cached_spell.icon or spell_icon
+        spellID = cached_spell.id or spellID
+        button.spell_book_slot = cached_spell.bookSlot
+    end
     if spellID then
         button.spellid = spellID
     end
@@ -4757,9 +4782,11 @@ local function build_spells_submenu(parentMenu)
             if spell_name then
                 local spell_label = spell_rank and spell_rank ~= ""
                     and (spell_name .. " (" .. spell_rank .. ")") or spell_name
+                local spell_binding_name = spell_rank and spell_rank ~= ""
+                    and (spell_name .. "(" .. spell_rank .. ")") or spell_name
                 local spellButton = tabButton:CreateButton(spell_label, function()
                     local key = addon.current_modifier_string .. (addon.current_clicked_key.raw_key or "")
-                    local spell_binding = "SPELL " .. spell_name
+                    local spell_binding = "SPELL " .. spell_binding_name
                     local binding_name = addon.current_clicked_key.readable_binding:GetText()
                     local actionbutton = addon.current_clicked_key.binding
                     local targetSlot = addon.current_slot or addon.action_slot_mapping[actionbutton]
@@ -4776,9 +4803,10 @@ local function build_spells_submenu(parentMenu)
                         ClearCursor()
                         print("KeyUI: Bound |cffa335ee" .. spell_name .. "|r to |cffff8000" .. key .. "|r (" .. binding_name .. ")")
                     else
-                        SetBinding(key, spell_binding)
+                        local bound = SetBindingSpell and SetBindingSpell(key, spell_binding_name)
+                        if not bound then SetBinding(key, spell_binding) end
                         SaveBindings(GetCurrentBindingSet())
-                        print("KeyUI: Bound |cffa335ee" .. spell_name .. "|r to |cffff8000" .. key .. "|r")
+                        print("KeyUI: Bound |cffa335ee" .. spell_label .. "|r to |cffff8000" .. key .. "|r")
                     end
                 end)
 

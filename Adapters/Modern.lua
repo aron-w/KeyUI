@@ -96,6 +96,22 @@ function adapter.spells:GetInfo(identifier)
     local name, _, icon, _, _, _, spell_id = GetSpellInfo(identifier)
     return name, icon, spell_id
 end
+function adapter.spells:SetTooltip(tooltip, spell_id, book_slot)
+    if spell_id and tooltip.SetSpellByID then
+        local ok = pcall(tooltip.SetSpellByID, tooltip, spell_id)
+        if ok then return true end
+    end
+    if book_slot and tooltip.SetSpellBookItem then
+        local bank = Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player
+        local ok = pcall(tooltip.SetSpellBookItem, tooltip, book_slot, bank)
+        if ok then return true end
+    end
+    if spell_id and tooltip.SetHyperlink then
+        local ok = pcall(tooltip.SetHyperlink, tooltip, "spell:" .. spell_id)
+        if ok then return true end
+    end
+    return false
+end
 function adapter.spells:IsKnown(spell_id)
     if C_SpellBook and C_SpellBook.IsSpellKnown then return C_SpellBook.IsSpellKnown(spell_id) end
     return IsSpellKnown and IsSpellKnown(spell_id) or false
