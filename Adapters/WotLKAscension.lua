@@ -244,21 +244,55 @@ end
 adapter.spells = {}
 function adapter.spells:VisitSpellbook(visitor)
     if not GetNumSpellTabs or not GetSpellTabInfo then return false end
+    local book_type = BOOKTYPE_SPELL or "spell"
     for tab_index = 1, GetNumSpellTabs() do
         local tab_name, _, offset, spell_count = GetSpellTabInfo(tab_index)
         if tab_name then
             visitor("tab", tab_name)
             for slot = offset + 1, offset + spell_count do
-                local spell_type, spell_id = GetSpellBookItemInfo(slot, BOOKTYPE_SPELL or "spell")
-                if spell_type == "SPELL" or spell_type == "FUTURESPELL" then
+                local item_type, item_data, item_id
+                if GetSpellBookItemInfo then
+                    item_type, item_data, item_id = GetSpellBookItemInfo(slot, book_type)
+                end
+
+                local normalized_type = type(item_type) == "string" and item_type:upper() or nil
+                if normalized_type ~= "FLYOUT" then
                     local spell_name
-                    if spell_id then
-                        spell_name = GetSpellInfo(spell_id)
-                    else
-                        spell_name = GetSpellInfo(slot, BOOKTYPE_SPELL or "spell")
+                    local spell_id = type(item_data) == "number" and item_data
+                        or type(item_id) == "number" and item_id
+
+                    -- Stock 3.3.5 returns a type and ID. Ascension builds have
+                    -- also returned name/rank/ID and lowercase type variants.
+                    if normalized_type ~= "SPELL" and normalized_type ~= "FUTURESPELL"
+                        and type(item_type) == "string" and item_type ~= "" then
+                        spell_name = item_type
                     end
-                    local passive = IsPassiveSpell and IsPassiveSpell(slot, BOOKTYPE_SPELL or "spell")
-                    if spell_name and not passive then visitor("spell", tab_name, spell_name, spell_id, slot) end
+
+                    if spell_id then
+                        local resolved_name, _, _, _, _, _, resolved_id = GetSpellInfo(spell_id)
+                        spell_name = resolved_name or spell_name
+                        spell_id = resolved_id or spell_id
+                    end
+                    if not spell_name then
+                        local resolved_name, _, _, _, _, _, resolved_id = GetSpellInfo(slot, book_type)
+                        spell_name = resolved_name
+                        spell_id = resolved_id or spell_id
+                    end
+                    if not spell_name and GetSpellBookItemName then
+                        spell_name = GetSpellBookItemName(slot, book_type)
+                    end
+                    if not spell_name and GetSpellName then
+                        spell_name = GetSpellName(slot, book_type)
+                    end
+
+                    local passive = false
+                    if IsPassiveSpell then
+                        local ok, result = pcall(IsPassiveSpell, slot, book_type)
+                        passive = ok and result == true
+                    end
+                    if spell_name and not passive then
+                        visitor("spell", tab_name, spell_name, spell_id, slot)
+                    end
                 end
             end
         end
