@@ -2495,55 +2495,7 @@ local specific_bindings = {
     TURNRIGHT = "Interface\\AddOns\\KeyUI\\Media\\Icons\\circle_right",
 }
 
-local binding_category_cache
-local fallback_binding_icons = {
-    movement = "Interface\\Icons\\Ability_Warrior_Charge",
-    action = "Interface\\Icons\\Ability_MeleeDamage",
-    targeting = "Interface\\Icons\\Ability_Hunter_SniperShot",
-    chat = "Interface\\Icons\\INV_Letter_15",
-    social = "Interface\\Icons\\INV_Misc_GroupNeedMore",
-    camera = "Interface\\Icons\\INV_Misc_Spyglass_03",
-    vehicle = "Interface\\Icons\\Ability_Mount_RidingHorse",
-    interface = "Interface\\Icons\\INV_Misc_Gear_01",
-}
-
-local function get_binding_category(binding)
-    if not binding_category_cache then
-        binding_category_cache = {}
-        addon.ports.actions:VisitBindings(function(category, command)
-            binding_category_cache[command] = category or ""
-        end)
-    end
-    return binding_category_cache[binding] or ""
-end
-
-local function get_fallback_binding_icon(binding)
-    local descriptor = (get_binding_category(binding) .. " " .. binding):upper()
-    if descriptor:find("MOVE", 1, true) or descriptor:find("STRAFE", 1, true)
-        or descriptor:find("TURN", 1, true) or descriptor:find("JUMP", 1, true)
-        or descriptor:find("PITCH", 1, true) then
-        return fallback_binding_icons.movement
-    elseif descriptor:find("TARGET", 1, true) or descriptor:find("FOCUS", 1, true)
-        or descriptor:find("ASSIST", 1, true) then
-        return fallback_binding_icons.targeting
-    elseif descriptor:find("CHAT", 1, true) or descriptor:find("REPLY", 1, true)
-        or descriptor:find("TELL", 1, true) then
-        return fallback_binding_icons.chat
-    elseif descriptor:find("PARTY", 1, true) or descriptor:find("RAID", 1, true)
-        or descriptor:find("GUILD", 1, true) or descriptor:find("FRIEND", 1, true) then
-        return fallback_binding_icons.social
-    elseif descriptor:find("CAMERA", 1, true) or descriptor:find("ZOOM", 1, true)
-        or descriptor:find("SCREENSHOT", 1, true) then
-        return fallback_binding_icons.camera
-    elseif descriptor:find("VEHICLE", 1, true) or descriptor:find("MOUNT", 1, true) then
-        return fallback_binding_icons.vehicle
-    elseif descriptor:find("ACTION", 1, true) or descriptor:find("BONUSACTION", 1, true)
-        or descriptor:find("MULTIACTION", 1, true) or descriptor:find("SHAPESHIFT", 1, true)
-        or descriptor:find("PET", 1, true) then
-        return fallback_binding_icons.action
-    end
-    return fallback_binding_icons.interface
-end
+local fallback_binding_icon = "Interface\\Icons\\INV_Misc_Gear_01"
 
 local function matches_opie_binding(binding)
     if type(binding) ~= "string" or binding == "" then
@@ -2632,7 +2584,7 @@ function addon:set_key(button)
 
         local current_texture = button.icon.GetTexture and button.icon:GetTexture()
         if not current_texture then
-            button.icon:SetTexture(get_fallback_binding_icon(binding))
+            button.icon:SetTexture(fallback_binding_icon)
             button.icon:SetSize(26, 26)
             button.icon:Show()
         end
