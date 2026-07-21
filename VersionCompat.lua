@@ -28,6 +28,7 @@ addon.VERSION = {
     -- Specific version ranges
     isVanilla = build >= 11500 and build < 20000,      -- Classic Era (1.15.x)
     isAnniversary = build >= 20500 and build < 30000,  -- Anniversary (2.5.x)
+    isWotLK335 = build >= 30300 and build < 30400,      -- Ascension / Wrath 3.3.5a
     isMoP = build >= 50500 and build < 60000,          -- MoP Classic (5.5.x)
 
     -- Atlas system availability (Retail only)
@@ -41,6 +42,7 @@ addon.VERSION.string = string.format(
     "%s (Build %d)",
     addon.VERSION.isRetail and "Retail" or
     addon.VERSION.isMoP and "MoP Classic" or
+    addon.VERSION.isWotLK335 and "WotLK 3.3.5a / Ascension" or
     addon.VERSION.isAnniversary and "Anniversary" or
     addon.VERSION.isVanilla and "Classic Era" or
     "Unknown",

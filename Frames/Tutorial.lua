@@ -27,7 +27,7 @@ function addon:create_tutorial_frame1()
     end
 
     -- Create the main glowing frame
-    local tutorial_frame = CreateFrame("Frame", nil, frame, "GlowBoxTemplate")
+    local tutorial_frame = addon.ports.ui:CreateFrame("Frame", nil, frame, "GlowBoxTemplate")
     tutorial_frame:SetPoint("BOTTOM", frame1_setpoint, "CENTER", 0, 70)
     tutorial_frame:SetSize(200, 50)
     tutorial_frame:SetFrameStrata("TOOLTIP")
@@ -38,16 +38,16 @@ function addon:create_tutorial_frame1()
 
     -- Create arrow frame (Retail uses template, Anniversary builds manually)
     local arrow
-    if pcall(function() CreateFrame("Frame", nil, UIParent, "Tutorial_PointerDown") end) then
+    if pcall(function() addon.ports.ui:CreateFrame("Frame", nil, UIParent, "Tutorial_PointerDown") end) then
         -- Retail: Use built-in template
-        arrow = CreateFrame("Frame", nil, tutorial_frame, "Tutorial_PointerDown")
+        arrow = addon.ports.ui:CreateFrame("Frame", nil, tutorial_frame, "Tutorial_PointerDown")
         arrow:SetPoint("TOP", tutorial_frame, "CENTER", 0, 0)
         if arrow.Anim then
             arrow.Anim:Play()
         end
     else
         -- Anniversary: Build arrow manually with extracted textures
-        arrow = CreateFrame("Frame", nil, tutorial_frame)
+        arrow = addon.ports.ui:CreateFrame("Frame", nil, tutorial_frame)
         arrow:SetSize(64, 64)
         arrow:SetPoint("TOP", tutorial_frame, "CENTER", 0, 23)
         arrow:SetAlpha(0)
@@ -121,7 +121,7 @@ function addon:create_tutorial_frame1()
                 end
 
                 -- Create the main glowing frame
-                local tutorial_frame2 = CreateFrame("Frame", nil, addon.controls_frame, "GlowBoxTemplate")
+                local tutorial_frame2 = addon.ports.ui:CreateFrame("Frame", nil, addon.controls_frame, "GlowBoxTemplate")
                 tutorial_frame2:SetPoint("LEFT", frame2_setpoint, "RIGHT", 70, 0)
                 tutorial_frame2:SetSize(200, 50)
                 tutorial_frame2:SetFrameStrata("TOOLTIP")
@@ -132,9 +132,9 @@ function addon:create_tutorial_frame1()
 
                 -- Create arrow frame (Retail uses template, Anniversary builds manually)
                 local arrow2
-                if pcall(function() CreateFrame("Frame", nil, UIParent, "Tutorial_PointerLeft") end) then
+                if pcall(function() addon.ports.ui:CreateFrame("Frame", nil, UIParent, "Tutorial_PointerLeft") end) then
                     -- Retail: Use built-in template
-                    arrow2 = CreateFrame("Frame", nil, tutorial_frame2, "Tutorial_PointerLeft")
+                    arrow2 = addon.ports.ui:CreateFrame("Frame", nil, tutorial_frame2, "Tutorial_PointerLeft")
                     arrow2:ClearAllPoints()
                     arrow2:SetPoint("LEFT", frame2_setpoint, "RIGHT", 30, 0)
                     arrow2:SetFrameStrata("TOOLTIP")
@@ -143,7 +143,7 @@ function addon:create_tutorial_frame1()
                     end
                 else
                     -- Anniversary: Build arrow manually with extracted textures
-                    arrow2 = CreateFrame("Frame", nil, tutorial_frame2)
+                    arrow2 = addon.ports.ui:CreateFrame("Frame", nil, tutorial_frame2)
                     arrow2:SetSize(64, 64)
                     arrow2:SetPoint("LEFT", frame2_setpoint, "RIGHT", 30, 0)
                     arrow2:SetAlpha(0)

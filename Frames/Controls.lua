@@ -34,7 +34,7 @@ local function has_tab_textures(button)
 end
 
 function addon:create_controls()
-    local controls_frame = CreateFrame("Frame", "keyui_keyboard_control_frame", UIParent, "BackdropTemplate")
+    local controls_frame = addon.ports.ui:CreateFrame("Frame", "keyui_keyboard_control_frame", UIParent, "BackdropTemplate")
     addon.controls_frame = controls_frame
 
     if addon.keyboard_frame then
@@ -130,7 +130,7 @@ function addon:create_controls()
     local stepSize = 0.01  -- Minimum step size for slider value change
 
     -- Create the slider control
-    controls_frame.size_slider = CreateFrame("Slider", nil, controls_frame, "MinimalSliderTemplate")
+    controls_frame.size_slider = addon.ports.ui:CreateFrame("Slider", nil, controls_frame, "MinimalSliderTemplate")
     controls_frame.size_slider:SetSize(326, 40)
     controls_frame.size_slider:SetPoint("LEFT", controls_frame, "TOPLEFT", second_setpoint + 16, size_y)  -- Position it to the right of the value text
     controls_frame.size_slider:Show()
@@ -195,7 +195,7 @@ function addon:create_controls()
     end)
 
     -- Create the 'Back' button (left arrow button)
-    local back_button = CreateFrame("Button", nil, controls_frame, "BackdropTemplate")
+    local back_button = addon.ports.ui:CreateFrame("Button", nil, controls_frame, "BackdropTemplate")
     back_button:SetSize(11, 19)
     back_button:SetPoint("RIGHT", controls_frame.size_slider, "LEFT", -4, 0)
 
@@ -213,7 +213,7 @@ function addon:create_controls()
     end)
 
     -- Create the 'Forward' button (right arrow button)
-    local forward_button = CreateFrame("Button", nil, controls_frame, "BackdropTemplate")
+    local forward_button = addon.ports.ui:CreateFrame("Button", nil, controls_frame, "BackdropTemplate")
     forward_button:SetSize(9, 18)
     forward_button:SetPoint("LEFT", controls_frame.size_slider, "RIGHT", 4, 0)
 
@@ -231,7 +231,7 @@ function addon:create_controls()
     end)
 
     -- Create the checkbox for toggling empty key bindings visibility
-    controls_frame.empty_keys_cb = CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
+    controls_frame.empty_keys_cb = addon.ports.ui:CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
     controls_frame.empty_keys_cb:SetSize(32, 36)
     controls_frame.empty_keys_cb:SetHitRectInsets(0, 0, 0, -10)
     controls_frame.empty_keys_cb:SetPoint("LEFT", controls_frame, "TOPLEFT", first_setpoint_cb, first_cb_y)
@@ -265,7 +265,7 @@ function addon:create_controls()
     controls_frame.empty_keys_text:SetPoint("LEFT", controls_frame.empty_keys_cb, "RIGHT", 10, 0)
 
     -- Create the checkbox for toggling interface binds visibility
-    controls_frame.interface_keys_cb = CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
+    controls_frame.interface_keys_cb = addon.ports.ui:CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
     controls_frame.interface_keys_cb:SetSize(32, 36)
     controls_frame.interface_keys_cb:SetHitRectInsets(0, 0, 0, -10)
     controls_frame.interface_keys_cb:SetPoint("LEFT", controls_frame, "TOPLEFT", first_setpoint_cb, second_cb_y)
@@ -299,7 +299,7 @@ function addon:create_controls()
     controls_frame.interface_keys_text:SetPoint("LEFT", controls_frame.interface_keys_cb, "RIGHT", 10, 0)
 
     -- Create the checkbox for toggling button highlight effect (show_pushed_texture)
-    controls_frame.highlight_buttons_cb = CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
+    controls_frame.highlight_buttons_cb = addon.ports.ui:CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
     controls_frame.highlight_buttons_cb:SetSize(32, 36)
     controls_frame.highlight_buttons_cb:SetHitRectInsets(0, 0, 0, -10)
     controls_frame.highlight_buttons_cb:SetPoint("LEFT", controls_frame, "TOPLEFT", first_setpoint_cb, third_cb_y)
@@ -331,7 +331,7 @@ function addon:create_controls()
     controls_frame.highlight_buttons_text:SetPoint("LEFT", controls_frame.highlight_buttons_cb, "RIGHT", 10, 0)
 
     -- Create the checkbox for toggling keypress highlight effect (show_keypress_highlight)
-    controls_frame.keypress_highlight_cb = CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
+    controls_frame.keypress_highlight_cb = addon.ports.ui:CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
     controls_frame.keypress_highlight_cb:SetSize(32, 36)
     controls_frame.keypress_highlight_cb:SetHitRectInsets(0, 0, 0, -10)
     controls_frame.keypress_highlight_cb:SetPoint("LEFT", controls_frame, "TOPLEFT", half_setpoint, third_cb_y)
@@ -369,7 +369,7 @@ function addon:create_controls()
     controls_frame.keypress_highlight_text:SetPoint("LEFT", controls_frame.keypress_highlight_cb, "RIGHT", 10, 0)
 
     -- Create the checkbox for toggling modifier detection (detect_modifier)
-    controls_frame.detect_modifier_cb = CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
+    controls_frame.detect_modifier_cb = addon.ports.ui:CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
     controls_frame.detect_modifier_cb:SetSize(32, 36)
     controls_frame.detect_modifier_cb:SetHitRectInsets(0, 0, 0, -10)
     controls_frame.detect_modifier_cb:SetPoint("LEFT", controls_frame, "TOPLEFT", half_setpoint, first_cb_y)
@@ -403,7 +403,7 @@ function addon:create_controls()
     controls_frame.detect_modifier_text:SetPoint("LEFT", controls_frame.detect_modifier_cb, "RIGHT", 10, 0)
 
     -- Create the checkbox for toggling dynamic modifier display (dynamic_modifier)
-    controls_frame.dynamic_modifier_cb = CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
+    controls_frame.dynamic_modifier_cb = addon.ports.ui:CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
     controls_frame.dynamic_modifier_cb:SetSize(32, 36)
     controls_frame.dynamic_modifier_cb:SetHitRectInsets(0, 0, 0, -10)
     controls_frame.dynamic_modifier_cb:SetPoint("LEFT", controls_frame, "TOPLEFT", half_setpoint, second_cb_y)
@@ -437,7 +437,7 @@ function addon:create_controls()
     controls_frame.dynamic_modifier_text:SetPoint("LEFT", controls_frame.dynamic_modifier_cb, "RIGHT", 10, 0)
 
     -- Action Bar Mode – single toggle for all live action bar overlays
-    controls_frame.actionbar_mode_cb = CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
+    controls_frame.actionbar_mode_cb = addon.ports.ui:CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
     controls_frame.actionbar_mode_cb:SetSize(32, 36)
     controls_frame.actionbar_mode_cb:SetHitRectInsets(0, 0, 0, -10)
     controls_frame.actionbar_mode_cb:SetPoint("LEFT", controls_frame, "TOPLEFT", first_setpoint_cb, fourth_cb_y)
@@ -466,7 +466,7 @@ function addon:create_controls()
     controls_frame.actionbar_mode_text:SetPoint("LEFT", controls_frame.actionbar_mode_cb, "RIGHT", 10, 0)
 
     -- Create a alt checkbox (centered in fifth row with Ctrl and Shift)
-    controls_frame.alt_cb = CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
+    controls_frame.alt_cb = addon.ports.ui:CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
     controls_frame.alt_cb:SetSize(32, 36)
     controls_frame.alt_cb:SetHitRectInsets(0, 0, 0, -10)
     controls_frame.alt_cb:SetPoint("CENTER", controls_frame, "TOP", -130, fifth_cb_y)
@@ -499,7 +499,7 @@ function addon:create_controls()
     controls_frame.alt_text:SetPoint("LEFT", controls_frame.alt_cb, "RIGHT", 4, 0)
 
     -- Create a ctrl checkbox
-    controls_frame.ctrl_cb = CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
+    controls_frame.ctrl_cb = addon.ports.ui:CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
     controls_frame.ctrl_cb:SetSize(32, 36)
     controls_frame.ctrl_cb:SetHitRectInsets(0, 0, 0, -10)
     controls_frame.ctrl_cb:SetPoint("CENTER", controls_frame.alt_cb, "CENTER", 110, 0)
@@ -531,7 +531,7 @@ function addon:create_controls()
     controls_frame.ctrl_text:SetPoint("LEFT", controls_frame.ctrl_cb, "RIGHT", 4, 0)
 
     -- Create a shift checkbox
-    controls_frame.shift_cb = CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
+    controls_frame.shift_cb = addon.ports.ui:CreateFrame("CheckButton", nil, controls_frame, "UICheckButtonArtTemplate")
     controls_frame.shift_cb:SetSize(32, 36)
     controls_frame.shift_cb:SetHitRectInsets(0, 0, 0, -10)
     controls_frame.shift_cb:SetPoint("CENTER", controls_frame.ctrl_cb, "CENTER", 110, 0)
@@ -669,7 +669,7 @@ function addon:create_controls()
 
     -- Create the keyboard tab button
     if USE_ATLAS then
-        controls_frame.keyboard_button = CreateFrame("Button", nil, controls_frame, "PanelTabButtonTemplate")
+        controls_frame.keyboard_button = addon.ports.ui:CreateFrame("Button", nil, controls_frame, "PanelTabButtonTemplate")
     else
         controls_frame.keyboard_button = addon:CreateTabButton(controls_frame)
     end
@@ -677,7 +677,7 @@ function addon:create_controls()
 
     -- Create the mouse tab button
     if USE_ATLAS then
-        controls_frame.mouse_button = CreateFrame("Button", nil, controls_frame, "PanelTabButtonTemplate")
+        controls_frame.mouse_button = addon.ports.ui:CreateFrame("Button", nil, controls_frame, "PanelTabButtonTemplate")
     else
         controls_frame.mouse_button = addon:CreateTabButton(controls_frame)
     end
@@ -685,7 +685,7 @@ function addon:create_controls()
 
     -- Create the controller tab button
     if USE_ATLAS then
-        controls_frame.controller_button = CreateFrame("Button", nil, controls_frame, "PanelTabButtonTemplate")
+        controls_frame.controller_button = addon.ports.ui:CreateFrame("Button", nil, controls_frame, "PanelTabButtonTemplate")
     else
         controls_frame.controller_button = addon:CreateTabButton(controls_frame)
     end
@@ -897,7 +897,7 @@ end
 function addon:create_name_input_dialog()
 
     -- Create the name input dialog frame
-    local name_input_frame = CreateFrame("Frame", "keyui_name_input_frame", UIParent, "BackdropTemplate")
+    local name_input_frame = addon.ports.ui:CreateFrame("Frame", "keyui_name_input_frame", UIParent, "BackdropTemplate")
     name_input_frame:SetSize(350, 170)
     name_input_frame:SetPoint("TOP", UIParent, "TOP", 0, -50)
     name_input_frame:SetFrameStrata("DIALOG")
@@ -956,7 +956,7 @@ function addon:create_name_input_dialog()
     update_input_content()
 
     -- Input box
-    name_input_frame.input_box = CreateFrame("EditBox", nil, name_input_frame, "InputBoxTemplate")
+    name_input_frame.input_box = addon.ports.ui:CreateFrame("EditBox", nil, name_input_frame, "InputBoxTemplate")
     name_input_frame.input_box:SetSize(240, 30)
     name_input_frame.input_box:SetScale(1.2)
     name_input_frame.input_box:SetPoint("TOP", name_input_frame.instruction, "BOTTOM", 3, 0)
@@ -1048,7 +1048,7 @@ end
 function addon:create_edit_layout_dialog()
 
     -- Create the dialog frame
-    local dialog_frame = CreateFrame("Frame", "keyui_dialog_frame", UIParent, "BackdropTemplate")
+    local dialog_frame = addon.ports.ui:CreateFrame("Frame", "keyui_dialog_frame", UIParent, "BackdropTemplate")
     dialog_frame:SetSize(350, 170)
     dialog_frame:SetPoint("TOP", UIParent, "TOP", 0, -50)
     dialog_frame:SetFrameStrata("DIALOG")
@@ -1452,7 +1452,7 @@ end
 
 function addon:keyboard_layout_selector()
     -- Create the dropdown button frame
-    local keyboard_selector = CreateFrame("DropdownButton", nil, addon.controls_frame, "WowStyle1DropdownTemplate")
+    local keyboard_selector = addon.ports.ui:CreateFrame("DropdownButton", nil, addon.controls_frame, "WowStyle1DropdownTemplate")
     addon.keyboard_selector = keyboard_selector
 
     keyboard_selector:SetHeight(28)
@@ -1723,7 +1723,7 @@ end
 
 function addon:mouse_layout_selector()
     -- Create the dropdown button frame
-    local mouse_selector = CreateFrame("DropdownButton", nil, addon.controls_frame, "WowStyle1DropdownTemplate")
+    local mouse_selector = addon.ports.ui:CreateFrame("DropdownButton", nil, addon.controls_frame, "WowStyle1DropdownTemplate")
     addon.mouse_selector = mouse_selector
 
     mouse_selector:SetHeight(28)
@@ -1858,7 +1858,7 @@ end
 
 function addon:controller_layout_selector()
     -- Create the dropdown button frame
-    local controller_selector = CreateFrame("DropdownButton", nil, addon.controls_frame, "WowStyle1DropdownTemplate")
+    local controller_selector = addon.ports.ui:CreateFrame("DropdownButton", nil, addon.controls_frame, "WowStyle1DropdownTemplate")
     addon.controller_selector = controller_selector
 
     controller_selector:SetHeight(28)

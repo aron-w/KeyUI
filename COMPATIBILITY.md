@@ -4,6 +4,7 @@
 
 KeyUI uses an **All-in-One approach** with runtime version detection to support all active WoW versions from a single codebase:
 
+- **Project Ascension / WotLK 3.3.5a** - Interface 30300
 - **Retail** (12.0.0+ Midnight) - Build 120000+
 - **MoP Classic** (5.5.3) - Build 50503
 - **Anniversary Edition** (2.5.5) - Build 20505
@@ -36,6 +37,26 @@ addon.VERSION = {
     string = "Retail (Build 120000)"  -- Human-readable version
 }
 ```
+
+## Ports and Adapters
+
+Game APIs are exposed to the addon through the ports in `Ports/Game.lua`.
+`Ports/Bootstrap.lua` selects one of the client adapters at load time:
+
+- `Adapters/Modern.lua` passes supported modern APIs through.
+- `Adapters/WotLKAscension.lua` maps the 3.3.5a global API, legacy templates,
+  Interface Options, dropdown menus, and OnUpdate-based timers onto the same
+  contracts.
+
+Application and frame code should call `addon.ports` instead of adding new
+version checks. The currently defined boundaries are `actions`, `addons`,
+`events`, `lifecycle`, `settings`, `spells`, `timers`, and `ui`.
+
+The Ascension adapter intentionally degrades client features that do not exist
+in 3.3.5a. Charge and loss-of-control rings, assisted combat, gamepad input,
+atlas-backed proc animations, and keyboard propagation are no-ops or hidden;
+the keyboard/mouse visualizer, binding inspection, spellbook, action slots,
+cooldowns, legacy settings, and layout menus remain available.
 
 ### How to Use in Code
 

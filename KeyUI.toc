@@ -1,4 +1,4 @@
-## Interface: 120005, 50504, 20505, 11508
+## Interface: 30300, 120005, 50504, 20505, 11508
 ## Author: Blandros
 ## Category: Action Bars
 ## Version: @project-version@
@@ -17,6 +17,10 @@ embeds.xml
 Variables.lua
 Validation.lua
 VersionCompat.lua
+Ports\Game.lua
+Adapters\Modern.lua
+Adapters\WotLKAscension.lua
+Ports\Bootstrap.lua
 Mappings.lua
 UIHelpers.lua
 Layouts\Keyboard.lua

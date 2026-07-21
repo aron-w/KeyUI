@@ -78,7 +78,7 @@ function addon:CreateGlowFrame(parent, options)
 
     options = options or {}
     local frameParent = options.parent or parent
-    local frame = CreateFrame(options.frameType or "Frame", options.name, frameParent, options.template)
+    local frame = addon.ports.ui:CreateFrame(options.frameType or "Frame", options.name, frameParent, options.template)
 
     local frameLevelOffset = options.frameLevelOffset
     if frameLevelOffset == nil then
@@ -178,7 +178,7 @@ end
 
 function addon:CreateStyledButton(parent, options)
     options = options or {}
-    local button = CreateFrame(options.frameType or "Button", options.name, parent, options.template)
+    local button = addon.ports.ui:CreateFrame(options.frameType or "Button", options.name, parent, options.template)
 
     button:SetSize(options.width or 160, options.height or 30)
 
@@ -258,7 +258,7 @@ end
 -- Creates tab buttons with Anniversary compatibility
 -- Matches Blizzard's PanelTabButtonTemplate structure
 function addon:CreateTabButton(parent)
-    local button = CreateFrame("Button", nil, parent)
+    local button = addon.ports.ui:CreateFrame("Button", nil, parent)
     button:SetSize(115, 32)
 
     -- Inactive state: Left piece (matches uiframe-tab-left)
@@ -357,7 +357,7 @@ end
 -- - Vertically flipped texture coords (vMax, vMin instead of vMin, vMax)
 -- - 75% height of normal tabs
 function addon:CreateTopTabButton(parent)
-    local button = CreateFrame("Button", nil, parent)
+    local button = addon.ports.ui:CreateFrame("Button", nil, parent)
     button:SetSize(115, 32)
 
     local TOP_TAB_HEIGHT_PERCENT = 0.75
@@ -454,7 +454,7 @@ end
 
 -- Creates close buttons using redbutton2x atlas (used by Controls frame)
 function addon:CreateCloseButton(parent)
-    local button = CreateFrame("Button", nil, parent)
+    local button = addon.ports.ui:CreateFrame("Button", nil, parent)
     button:SetSize(24, 24)
 
     local texture_path = "Interface\\AddOns\\KeyUI\\Media\\Atlas\\redbutton2x"
@@ -493,7 +493,7 @@ end
 
 -- Creates exit button using 128redbutton atlas (matches ArrowDownButton style)
 function addon:CreateExitButton(parent)
-    local button = CreateFrame("Button", nil, parent)
+    local button = addon.ports.ui:CreateFrame("Button", nil, parent)
     button:SetSize(24, 24)
 
     local texture_path = "Interface\\AddOns\\KeyUI\\Media\\Atlas\\128redbutton"
@@ -531,7 +531,7 @@ function addon:CreateExitButton(parent)
 end
 
 function addon:CreateArrowUpButton(parent)
-    local button = CreateFrame("Button", nil, parent)
+    local button = addon.ports.ui:CreateFrame("Button", nil, parent)
     button:SetSize(22, 22)
 
     local texture_path = "Interface\\AddOns\\KeyUI\\Media\\Atlas\\128redbutton"
