@@ -32,6 +32,8 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete migration summary and current 
 
 To assign a global toggle hotkey, open **Main Menu → Key Bindings → KeyUI** and bind **Toggle KeyUI**.
 
+During combat, the global hotkey opens KeyUI as a dimmed, read-only binding inspector. Hover a key to see its tooltip; casting, dragging, right-click menus, layout editing, and settings controls stay disabled until combat ends. If **Combat** is enabled in KeyUI's frame menu, an already-open layout automatically switches into this preview mode when combat starts.
+
 Changes use the active Blizzard binding set and are saved through the normal WoW binding APIs.
 
 ## Right-click binding menus
@@ -65,6 +67,7 @@ On Ascension, keyboard and mouse visualization/editing are the supported input p
 - Native controller/gamepad input capture is unavailable on the 3.3.5a client.
 - Retail-only Assisted Combat, charge displays, loss-of-control displays, gamepad events, atlas animations, and keyboard propagation are unavailable or hidden.
 - Secure binding and action changes remain subject to WoW combat lockdown.
+- Combat preview is opened through the global **Toggle KeyUI** binding; insecure slash-command and minimap callbacks cannot reveal protected key frames during combat.
 - Legacy dropdown menus cannot scroll; KeyUI paginates them with **More...** submenus.
 - OPie integration requires an enabled OPie build exposing the compatible `OneRingLib` API.
 - ElvUI, BindPad, and Dominos integration paths are currently unconfirmed on Ascension.

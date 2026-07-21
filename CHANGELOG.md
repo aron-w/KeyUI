@@ -25,6 +25,8 @@ This changelog summarizes the Ascension WotLK 3.3.5a migration performed on the 
 ### Binding and drag-and-drop workflows
 
 - Added a global **Toggle KeyUI** action to WoW's Key Bindings interface.
+- The global hotkey can open a translucent, tooltip-only binding preview during combat.
+- Combat preview temporarily disables secure key actions, dragging, assignment menus, layout editing, and settings controls.
 - Restored visible bindings on keyboard and mouse layouts.
 - Restored right-click assignment without triggering the currently bound action.
 - Added direct spell, macro, and Interface-action assignment.

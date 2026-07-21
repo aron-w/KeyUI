@@ -189,6 +189,7 @@ function addon:create_controller_frame()
 
     -- Set OnClick behavior for controls button
     controller_frame.controls_button:SetScript("OnClick", function()
+        if addon.combat_preview then return end
         addon.active_control_tab = "controller"
         addon:update_tab_textures()
 
@@ -255,6 +256,7 @@ function addon:create_controller_frame()
 
     -- Set OnClick behavior for options button
     controller_frame.options_button:SetScript("OnClick", function()
+        if addon.combat_preview then return end
         addon:OpenSettings()
     end)
 
@@ -656,7 +658,7 @@ function addon:create_controller_buttons(index)
         addon:button_mouse_over(controller_button)
         local active_slot = self.active_slot
 
-        if addon.controller_locked == false and not addon.is_moving then
+        if addon.controller_locked == false and not addon.is_moving and not addon.combat_preview then
 
             controller_button:EnableKeyboard(true)
             controller_button:EnableMouseWheel(true)
@@ -696,6 +698,7 @@ function addon:create_controller_buttons(index)
 
     -- Drag start: pick up action from slot (locked mode only, outside combat).
     controller_button:SetScript("OnDragStart", function(self, mousebutton)
+        if addon.combat_preview then return end
         if addon.controller_locked ~= false and (mousebutton == nil or mousebutton == "LeftButton") then
             addon:begin_key_button_drag(self)
         end
@@ -707,12 +710,14 @@ function addon:create_controller_buttons(index)
 
     -- Receive drag: place action into slot (locked mode only, outside combat).
     controller_button:SetScript("OnReceiveDrag", function(self)
+        if addon.combat_preview then return end
         if addon.controller_locked ~= false then
             addon:complete_key_button_drop(self)
         end
     end)
 
     controller_button:SetScript("OnMouseDown", function(self, button)
+        if addon.combat_preview then return end
         if button == "LeftButton" then
             if addon.controller_locked == false then
                 addon:handle_drag_or_size(self, button)
@@ -727,6 +732,7 @@ function addon:create_controller_buttons(index)
     end)
 
     controller_button:SetScript("OnMouseUp", function(self, button)
+        if addon.combat_preview then return end
         if button == "LeftButton" then
             if addon.controller_locked == false then
                 addon:handle_release(self, button)

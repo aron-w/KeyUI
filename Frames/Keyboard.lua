@@ -183,6 +183,7 @@ function addon:create_keyboard_frame()
     text:SetTextColor(1, 1, 1) -- Set text color to white
 
     keyboard_frame.controls_button:SetScript("OnClick", function()
+        if addon.combat_preview then return end
         addon.active_control_tab = "keyboard"
         addon:update_tab_textures()
 
@@ -250,6 +251,7 @@ function addon:create_keyboard_frame()
 
     -- Set OnClick behavior for options button
     keyboard_frame.options_button:SetScript("OnClick", function()
+        if addon.combat_preview then return end
         addon:OpenSettings()
     end)
 
@@ -623,7 +625,7 @@ function addon:create_keyboard_buttons(index)
 
         local slot = self.slot
 
-        if addon.keyboard_locked == false then
+        if addon.keyboard_locked == false and not addon.combat_preview then
 
             keyboard_button:EnableKeyboard(true)
 
@@ -664,6 +666,7 @@ function addon:create_keyboard_buttons(index)
 
     -- Drag start: pick up action from slot (locked mode only, outside combat).
     keyboard_button:SetScript("OnDragStart", function(self, mousebutton)
+        if addon.combat_preview then return end
         if addon.keyboard_locked ~= false and (mousebutton == nil or mousebutton == "LeftButton") then
             addon:begin_key_button_drag(self)
         end
@@ -675,6 +678,7 @@ function addon:create_keyboard_buttons(index)
 
     -- Receive drag: place action into slot (locked mode only, outside combat).
     keyboard_button:SetScript("OnReceiveDrag", function(self)
+        if addon.combat_preview then return end
         if addon.keyboard_locked ~= false then
             addon:complete_key_button_drop(self)
         end
@@ -682,6 +686,7 @@ function addon:create_keyboard_buttons(index)
 
     -- Define behavior for mouse down actions (left-click).
     keyboard_button:SetScript("OnMouseDown", function(self, mousebutton)
+        if addon.combat_preview then return end
         if mousebutton == "LeftButton" then
             if addon.keyboard_locked == false then
                 addon:handle_drag_or_size(self, mousebutton)
@@ -700,6 +705,7 @@ function addon:create_keyboard_buttons(index)
 
     -- Define behavior for mouse up actions (left-click and right-click).
     keyboard_button:SetScript("OnMouseUp", function(self, mousebutton)
+        if addon.combat_preview then return end
         if mousebutton == "LeftButton" then
             if addon.keyboard_locked == false then
                 addon:handle_release(self, mousebutton)

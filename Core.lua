@@ -358,10 +358,89 @@ local global_toggle_button = addon.ports.ui:CreateFrame(
     "Button",
     "KeyUIGlobalToggleButton",
     UIParent,
-    "SecureHandlerClickTemplate"
+    "SecureHandlerClickTemplate,SecureHandlerStateTemplate"
 )
+global_toggle_button:SetAttribute("_enterpreview", [[
+    local frame = self:GetFrameRef("KeyUIKeyboardFrame")
+    if frame and frame:IsShown() then frame:SetAlpha(0.55) end
+    frame = self:GetFrameRef("KeyUIMouseFrame")
+    if frame and frame:IsShown() then frame:SetAlpha(0.55) end
+    frame = self:GetFrameRef("KeyUIMouseImage")
+    if frame and frame:IsShown() then frame:SetAlpha(0.55) end
+    frame = self:GetFrameRef("KeyUIControllerFrame")
+    if frame and frame:IsShown() then frame:SetAlpha(0.55) end
+    frame = self:GetFrameRef("KeyUIControllerImage")
+    if frame and frame:IsShown() then frame:SetAlpha(0.55) end
+
+    if not self:GetAttribute("KeyUICombatPreview") then
+        for i = 1, self:GetAttribute("KeyUIKeyboardKeyCount") or 0 do
+            local key = self:GetFrameRef("KeyUIKeyboardKey" .. i)
+            if key then
+                key:SetAttribute("KeyUIStoredType", key:GetAttribute("type"))
+                key:SetAttribute("KeyUIStoredType1", key:GetAttribute("type1"))
+                key:SetAttribute("type", nil)
+                key:SetAttribute("type1", nil)
+            end
+        end
+        for i = 1, self:GetAttribute("KeyUIMouseKeyCount") or 0 do
+            local key = self:GetFrameRef("KeyUIMouseKey" .. i)
+            if key then
+                key:SetAttribute("KeyUIStoredType", key:GetAttribute("type"))
+                key:SetAttribute("KeyUIStoredType1", key:GetAttribute("type1"))
+                key:SetAttribute("type", nil)
+                key:SetAttribute("type1", nil)
+            end
+        end
+        for i = 1, self:GetAttribute("KeyUIControllerKeyCount") or 0 do
+            local key = self:GetFrameRef("KeyUIControllerKey" .. i)
+            if key then
+                key:SetAttribute("KeyUIStoredType", key:GetAttribute("type"))
+                key:SetAttribute("KeyUIStoredType1", key:GetAttribute("type1"))
+                key:SetAttribute("type", nil)
+                key:SetAttribute("type1", nil)
+            end
+        end
+    end
+    self:SetAttribute("KeyUICombatPreview", true)
+]])
+global_toggle_button:SetAttribute("_exitpreview", [[
+    local frame = self:GetFrameRef("KeyUIKeyboardFrame")
+    if frame then frame:SetAlpha(1) end
+    frame = self:GetFrameRef("KeyUIMouseFrame")
+    if frame then frame:SetAlpha(1) end
+    frame = self:GetFrameRef("KeyUIMouseImage")
+    if frame then frame:SetAlpha(1) end
+    frame = self:GetFrameRef("KeyUIControllerFrame")
+    if frame then frame:SetAlpha(1) end
+    frame = self:GetFrameRef("KeyUIControllerImage")
+    if frame then frame:SetAlpha(1) end
+
+    for i = 1, self:GetAttribute("KeyUIKeyboardKeyCount") or 0 do
+        local key = self:GetFrameRef("KeyUIKeyboardKey" .. i)
+        if key then
+            key:SetAttribute("type", key:GetAttribute("KeyUIStoredType"))
+            key:SetAttribute("type1", key:GetAttribute("KeyUIStoredType1"))
+        end
+    end
+    for i = 1, self:GetAttribute("KeyUIMouseKeyCount") or 0 do
+        local key = self:GetFrameRef("KeyUIMouseKey" .. i)
+        if key then
+            key:SetAttribute("type", key:GetAttribute("KeyUIStoredType"))
+            key:SetAttribute("type1", key:GetAttribute("KeyUIStoredType1"))
+        end
+    end
+    for i = 1, self:GetAttribute("KeyUIControllerKeyCount") or 0 do
+        local key = self:GetFrameRef("KeyUIControllerKey" .. i)
+        if key then
+            key:SetAttribute("type", key:GetAttribute("KeyUIStoredType"))
+            key:SetAttribute("type1", key:GetAttribute("KeyUIStoredType1"))
+        end
+    end
+    self:SetAttribute("KeyUICombatPreview", false)
+]])
 global_toggle_button:SetAttribute("_onclick", [[
     local wasOpen = false
+    local openedPreview = false
     local frame = self:GetFrameRef("KeyUIKeyboardFrame")
     if frame and frame:IsShown() then
         wasOpen = true
@@ -382,15 +461,81 @@ global_toggle_button:SetAttribute("_onclick", [[
         wasOpen = true
         frame:Hide()
     end
+    frame = self:GetFrameRef("KeyUIControllerImage")
+    if frame and frame:IsShown() then frame:Hide() end
+    if wasOpen and self:GetAttribute("KeyUICombatPreview") then
+        self:RunAttribute("_exitpreview")
+    elseif not wasOpen and SecureCmdOptionParse("[combat] combat; nocombat") == "combat" then
+        frame = self:GetFrameRef("KeyUIKeyboardFrame")
+        if frame and self:GetAttribute("KeyUIShowKeyboard") then
+            frame:Show()
+            openedPreview = true
+        end
+        frame = self:GetFrameRef("KeyUIMouseImage")
+        if frame and self:GetAttribute("KeyUIShowMouse") then
+            frame:Show()
+            openedPreview = true
+        end
+        frame = self:GetFrameRef("KeyUIMouseFrame")
+        if frame and self:GetAttribute("KeyUIShowMouse") then frame:Show() end
+        frame = self:GetFrameRef("KeyUIControllerFrame")
+        if frame and self:GetAttribute("KeyUIShowController") then
+            frame:Show()
+            openedPreview = true
+        end
+        frame = self:GetFrameRef("KeyUIControllerImage")
+        if frame and self:GetAttribute("KeyUIShowController") then frame:Show() end
+        if openedPreview then self:RunAttribute("_enterpreview") end
+    end
     self:SetAttribute("KeyUIWasOpen", wasOpen)
+    self:SetAttribute("KeyUIOpenedPreview", openedPreview)
+]])
+global_toggle_button:SetAttribute("_onstate-combat", [[
+    if newstate == "1" then
+        local anyShown = false
+        local frame = self:GetFrameRef("KeyUIKeyboardFrame")
+        if frame and frame:IsShown() then anyShown = true end
+        frame = self:GetFrameRef("KeyUIMouseImage")
+        if frame and frame:IsShown() then anyShown = true end
+        frame = self:GetFrameRef("KeyUIControllerFrame")
+        if frame and frame:IsShown() then anyShown = true end
+
+        if anyShown and self:GetAttribute("KeyUIStayOpenInCombat") then
+            self:RunAttribute("_enterpreview")
+        elseif anyShown then
+            frame = self:GetFrameRef("KeyUIKeyboardFrame")
+            if frame and frame:IsShown() then frame:Hide() end
+            frame = self:GetFrameRef("KeyUIMouseFrame")
+            if frame and frame:IsShown() then frame:Hide() end
+            frame = self:GetFrameRef("KeyUIMouseImage")
+            if frame and frame:IsShown() then frame:Hide() end
+            frame = self:GetFrameRef("KeyUIControllerFrame")
+            if frame and frame:IsShown() then frame:Hide() end
+            frame = self:GetFrameRef("KeyUIControllerImage")
+            if frame and frame:IsShown() then frame:Hide() end
+        end
+    elseif self:GetAttribute("KeyUICombatPreview") then
+        self:RunAttribute("_exitpreview")
+    end
 ]])
 global_toggle_button:HookScript("PostClick", function(self)
     if self:GetAttribute("KeyUIWasOpen") then
         addon:hide_all_frames()
+    elseif self:GetAttribute("KeyUIOpenedPreview") then
+        addon.open = true
+        addon.combat_preview = true
+        addon:disable_keypress_input()
+        addon:UpdatePerformanceOverlayVisibility()
     else
         addon:Toggle()
     end
 end)
+global_toggle_button:HookScript("OnAttributeChanged", function(_, attribute, value)
+    if attribute == "KeyUICombatPreview" then
+        addon.combat_preview = value == true
+    end
+end)
+RegisterStateDriver(global_toggle_button, "combat", "[combat]1;0")
 
 function addon:RegisterGlobalToggleFrame(reference_name, frame)
     if not reference_name or not frame or InCombatLockdown() then
@@ -398,6 +543,45 @@ function addon:RegisterGlobalToggleFrame(reference_name, frame)
     end
     global_toggle_button:SetFrameRef(reference_name, frame)
     return true
+end
+
+function addon:RefreshGlobalToggleSecureState()
+    if InCombatLockdown() then return false end
+
+    global_toggle_button:SetAttribute("KeyUIShowKeyboard", keyui_settings.show_keyboard == true)
+    global_toggle_button:SetAttribute("KeyUIShowMouse", keyui_settings.show_mouse == true)
+    global_toggle_button:SetAttribute("KeyUIShowController", keyui_settings.show_controller == true)
+    global_toggle_button:SetAttribute("KeyUIStayOpenInCombat", keyui_settings.stay_open_in_combat == true)
+
+    local devices = {
+        { prefix = "KeyUIKeyboardKey", count = "KeyUIKeyboardKeyCount", keys = addon.keys_keyboard },
+        { prefix = "KeyUIMouseKey", count = "KeyUIMouseKeyCount", keys = addon.keys_mouse },
+        { prefix = "KeyUIControllerKey", count = "KeyUIControllerKeyCount", keys = addon.keys_controller },
+    }
+    for _, device in ipairs(devices) do
+        local count = 0
+        for index, key in ipairs(device.keys or {}) do
+            global_toggle_button:SetFrameRef(device.prefix .. index, key)
+            count = index
+        end
+        global_toggle_button:SetAttribute(device.count, count)
+    end
+    return true
+end
+
+function addon:PrepareCombatPreview()
+    if InCombatLockdown() or addon.open then return end
+    if not keyui_settings.show_keyboard and not keyui_settings.show_mouse and not keyui_settings.show_controller then
+        addon:RefreshGlobalToggleSecureState()
+        return
+    end
+
+    addon:EnsureSelectedLayouts()
+    addon.open = true
+    addon:show_frames()
+    addon:refresh_layouts()
+    addon:hide_all_frames()
+    addon:RefreshGlobalToggleSecureState()
 end
 
 -- Minimap button setup using LibDataBroker
@@ -1716,6 +1900,7 @@ function addon:refresh_layouts()
 
     -- Rebuild key lookup for keypress visualization
     addon:build_key_lookup()
+    addon:RefreshGlobalToggleSecureState()
     finish()
 end
 
@@ -2167,6 +2352,7 @@ function addon:CreateLockToggleButtons(frame, frame_level, custom_font, use_bott
         function()
             keyui_settings.stay_open_in_combat = not keyui_settings.stay_open_in_combat
             addon:UpdateAllToggleVisuals()
+            addon:RefreshGlobalToggleSecureState()
         end,
         esc_btn
     )
@@ -2216,6 +2402,7 @@ function addon:CreateToggleMenuButton(frame, bg_setting)
     frame.menu_button = menu_button
 
     menu_button:SetScript("OnClick", function(self)
+        if addon.combat_preview then return end
         local menu = addon.ports.ui:CreateContextMenu(self, function(_, rootDescription)
             local bg = rootDescription:CreateCheckbox("Background",
                 function() return keyui_settings[bg_setting] end,
@@ -2246,6 +2433,7 @@ function addon:CreateToggleMenuButton(frame, bg_setting)
                 function()
                     keyui_settings.stay_open_in_combat = not keyui_settings.stay_open_in_combat
                     addon:UpdateAllToggleVisuals()
+                    addon:RefreshGlobalToggleSecureState()
                 end)
             combat:SetTooltip(function(tooltip)
                 GameTooltip_SetTitle(tooltip, "Combat")
@@ -2297,11 +2485,13 @@ function addon:hide_all_frames()
     local mouse_image = addon.mouse_image
     local mouse_frame = addon.mouse_frame
     local controller_frame = addon.controller_frame
+    local controller_image = addon.controller_image
 
     addon:SafeHideFrame(keyboard_frame)
     addon:SafeHideFrame(mouse_frame)
     addon:SafeHideFrame(mouse_image)
     addon:SafeHideFrame(controller_frame)
+    addon:SafeHideFrame(controller_image)
 
     if addon.controls_frame then
         addon.controls_frame:Hide()
@@ -2427,6 +2617,7 @@ end
 function addon:get_controller_image()
     if not addon.controller_image then
         addon.controller_image = addon:create_controller_image()
+        addon:RegisterGlobalToggleFrame("KeyUIControllerImage", addon.controller_image)
     end
     return addon.controller_image
 end
@@ -5371,6 +5562,9 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         if not addon.spells or next(addon.spells) == nil then
             addon:load_spellbook()
         end
+        addon.ports.timers:After(0, function()
+            addon:PrepareCombatPreview()
+        end)
         return
     end
 
@@ -5387,6 +5581,7 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 
     if event == "PLAYER_REGEN_ENABLED" then
         addon.in_combat = false
+        addon.combat_preview = false
         addon.retail_action_block_warned_this_combat = false
         addon.combat_hide_hint_shown = false
         -- Process frames that were deferred because Hide() is blocked during combat
@@ -5408,9 +5603,12 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         addon.in_combat = true
         addon.retail_action_block_warned_this_combat = false
         addon:disable_keypress_input()
-        if addon.open and not keyui_settings.stay_open_in_combat then
-            addon:hide_all_frames()
-        else
+        if addon.controls_frame then addon.controls_frame:Hide() end
+        if addon.selection_frame then addon.selection_frame:Hide() end
+        if addon.name_input_dialog then addon.name_input_dialog:Hide() end
+        if addon.edit_layout_dialog then addon.edit_layout_dialog:Hide() end
+        addon.combat_preview = global_toggle_button:GetAttribute("KeyUICombatPreview") == true
+        if addon.open then
             addon:refresh_assist_overlays()
         end
         return
