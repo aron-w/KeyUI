@@ -588,7 +588,9 @@ function addon:create_controller_buttons(index)
     -- controller Keybind text string on the top right of the button (e.g. a-c-s-1)
     controller_button.short_key = controller_button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     controller_button.short_key:SetTextColor(1, 1, 1)
-    controller_button.short_key:SetScale(1.4)
+    if controller_button.short_key.SetScale then
+        controller_button.short_key:SetScale(1.4)
+    end
     -- controller_button.short_key:SetPoint("LEFT", controller_button, "RIGHT", 10, 0)
     -- controller_button.short_key:SetJustifyH("RIGHT")
     -- controller_button.short_key:SetJustifyV("TOP")

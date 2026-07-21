@@ -106,6 +106,10 @@ function adapter.ui:CreateFrame(frame_type, name, parent, template)
     if frame_type == "DropdownButton" or template == "WowStyle1DropdownTemplate" then
         return create_legacy_dropdown(name, parent)
     end
+    if frame_type == "Slider" and not name then
+        adapter.slider_count = (adapter.slider_count or 0) + 1
+        name = "KeyUILegacySlider" .. adapter.slider_count
+    end
     local frame = CreateFrame(frame_type, name, parent, normalize_templates(template))
     local noop = function() end
     if not frame.EnableGamePadButton then frame.EnableGamePadButton = noop end

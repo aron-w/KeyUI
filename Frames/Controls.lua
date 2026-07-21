@@ -624,7 +624,15 @@ function addon:create_controls()
     addon:RegisterFontString(controls_frame.expander_text, 1.0)
     controls_frame.expander_text:SetTextColor(1, 1, 1)
 
-    controls_frame.expander_text:SetScript("OnMouseDown", toggle_controls_expanded) -- Make expander text clickable to toggle state
+    if controls_frame.expander_text.SetScript then
+        controls_frame.expander_text:SetScript("OnMouseDown", toggle_controls_expanded)
+    else
+        -- FontStrings cannot receive scripts on the 3.3.5 client.
+        controls_frame.expander_button = addon.ports.ui:CreateFrame("Button", nil, controls_frame)
+        controls_frame.expander_button:SetSize(220, 30)
+        controls_frame.expander_button:SetPoint("CENTER", controls_frame, "BOTTOM", 0, 30)
+        controls_frame.expander_button:SetScript("OnClick", toggle_controls_expanded)
+    end
 
     -- Set initial visibility of controls based on controls_expanded
     set_controls_visibility(keyui_settings.controls_expanded)

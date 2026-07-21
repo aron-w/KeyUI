@@ -146,13 +146,15 @@ function addon:UpdateButtonChargeCooldown(button)
 
     local charges, maxCharges, chargeStart, chargeDuration, chargeModRate
     if C_ActionBar and C_ActionBar.GetActionCharges then
-        local info = C_ActionBar.GetActionCharges(button.active_slot)
-        if info then
-            charges      = info.currentCharges
-            maxCharges   = info.maxCharges
-            chargeStart  = info.cooldownStartTime
-            chargeDuration = info.cooldownDuration
-            chargeModRate  = info.chargeModRate
+        local first, second, third, fourth, fifth = C_ActionBar.GetActionCharges(button.active_slot)
+        if type(first) == "table" then
+            charges        = first.currentCharges
+            maxCharges     = first.maxCharges
+            chargeStart    = first.cooldownStartTime
+            chargeDuration = first.cooldownDuration
+            chargeModRate  = first.chargeModRate
+        else
+            charges, maxCharges, chargeStart, chargeDuration, chargeModRate = first, second, third, fourth, fifth
         end
     elseif GetActionCharges then
         charges, maxCharges, chargeStart, chargeDuration, chargeModRate = GetActionCharges(button.active_slot)

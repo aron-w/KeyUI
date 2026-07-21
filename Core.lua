@@ -2418,12 +2418,16 @@ function addon:button_mouse_over(button)
     -- Adjust the tooltip size and text positions for gamepad buttons
     if addon.gamepad_buttons[raw_key] then
         addon.keyui_tooltip_frame:SetHeight(74) -- Increase height for gamepad buttons
-        addon.keyui_tooltip_frame.key:SetScale(0.8)
+        if addon.keyui_tooltip_frame.key.SetScale then
+            addon.keyui_tooltip_frame.key:SetScale(0.8)
+        end
         addon.keyui_tooltip_frame.key:SetPoint("CENTER", addon.keyui_tooltip_frame, "CENTER", 0, 14) -- Adjust key text position
         addon.keyui_tooltip_frame.binding:SetPoint("CENTER", addon.keyui_tooltip_frame, "CENTER", 0, -22) -- Adjust binding text position
     else
         addon.keyui_tooltip_frame:SetHeight(50) -- Default height for non-gamepad buttons
-        addon.keyui_tooltip_frame.key:SetScale(1)
+        if addon.keyui_tooltip_frame.key.SetScale then
+            addon.keyui_tooltip_frame.key:SetScale(1)
+        end
         addon.keyui_tooltip_frame.key:SetPoint("CENTER", addon.keyui_tooltip_frame, "CENTER", 0, 10) -- Default key text position
         addon.keyui_tooltip_frame.binding:SetPoint("CENTER", addon.keyui_tooltip_frame, "CENTER", 0, -10) -- Default binding text position
     end
@@ -2655,9 +2659,11 @@ function addon:GetButtonCooldownData(button)
         local start, duration, modRate
 
         if API_COMPAT.has_modern_action_cooldown then
-            local info = C_ActionBar.GetActionCooldown(slot)
-            if info then
-                start, duration, modRate = info.startTime, info.duration, info.modRate
+            local first, second, _, fourth = C_ActionBar.GetActionCooldown(slot)
+            if type(first) == "table" then
+                start, duration, modRate = first.startTime, first.duration, first.modRate
+            else
+                start, duration, modRate = first, second, fourth
             end
         else
             local _
@@ -2678,12 +2684,18 @@ function addon:GetButtonCooldownData(button)
 
         -- No main cooldown – check charge recovery (covers charge-based spells).
         if API_COMPAT.has_modern_action_charges then
-            local ci = C_ActionBar.GetActionCharges(slot)
-            if ci and ci.maxCharges > 1 and ci.currentCharges < ci.maxCharges
-                    and ci.cooldownStartTime and ci.cooldownStartTime > 0 then
-                return ci.cooldownStartTime, ci.cooldownDuration, ci.chargeModRate or 1.0
+            local first, max_charges, charge_start, charge_duration, charge_mod_rate = C_ActionBar.GetActionCharges(slot)
+            if type(first) == "table" then
+                local ci = first
+                if ci.maxCharges > 1 and ci.currentCharges < ci.maxCharges
+                        and ci.cooldownStartTime and ci.cooldownStartTime > 0 then
+                    return ci.cooldownStartTime, ci.cooldownDuration, ci.chargeModRate or 1.0
+                end
+            elseif max_charges and max_charges > 1 and first and first < max_charges
+                    and charge_start and charge_start > 0 then
+                return charge_start, charge_duration, charge_mod_rate or 1.0
             end
-        else
+        elseif GetActionCharges then
             local charges, maxCharges, cs, cd, cr = GetActionCharges(slot)
             if maxCharges and maxCharges > 1 and charges and charges < maxCharges
                     and cs and cs > 0 then
@@ -2696,9 +2708,11 @@ function addon:GetButtonCooldownData(button)
 
     if button.spellid then
         if API_COMPAT.has_modern_spell_cooldown then
-            local info = C_Spell.GetSpellCooldown(button.spellid)
-            if info then
-                return info.startTime, info.duration, info.modRate
+            local first, duration, _, mod_rate = C_Spell.GetSpellCooldown(button.spellid)
+            if type(first) == "table" then
+                return first.startTime, first.duration, first.modRate
+            elseif first ~= nil then
+                return first, duration, mod_rate or 1.0
             end
         else
             local start, duration = GetSpellCooldown(button.spellid)
@@ -4639,9 +4653,12 @@ end
 
 -- Helper function: Build macros submenu
 local function build_macros_submenu(parentMenu)
+    local account_macro_limit = tonumber(MAX_ACCOUNT_MACROS) or 36
+    local character_macro_limit = tonumber(MAX_CHARACTER_MACROS) or 18
+
     -- General Macros (1-MAX_ACCOUNT_MACROS)
     local generalMacroMenu = parentMenu:CreateButton("General Macro")
-    for i = 1, MAX_ACCOUNT_MACROS do
+    for i = 1, account_macro_limit do
         local macro_index = i
         local title, icon, _ = GetMacroInfo(macro_index)
         if title then
@@ -4688,7 +4705,7 @@ local function build_macros_submenu(parentMenu)
 
     -- Player Macros (MAX_ACCOUNT_MACROS+1 to MAX_ACCOUNT_MACROS+MAX_CHARACTER_MACROS)
     local playerMacroMenu = parentMenu:CreateButton("Player Macro")
-    for i = MAX_ACCOUNT_MACROS + 1, MAX_ACCOUNT_MACROS + MAX_CHARACTER_MACROS do
+    for i = account_macro_limit + 1, account_macro_limit + character_macro_limit do
         local macro_index = i
         local title, icon, _ = GetMacroInfo(macro_index)
         if title then
