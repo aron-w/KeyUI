@@ -2,7 +2,7 @@
 
 ## Overview
 
-KeyUI uses an **All-in-One approach** with runtime version detection to support all active WoW versions from a single codebase:
+This repository is the **Project Ascension fork** of KeyUI. Its primary release and validation target is Ascension's WotLK 3.3.5a client. The upstream all-in-one runtime paths remain in the codebase for compatibility:
 
 - **Project Ascension / WotLK 3.3.5a** - Interface 30300
 - **Retail** (12.0.0+ Midnight) - Build 120000+
@@ -32,6 +32,7 @@ addon.VERSION = {
     isClassic = false,           -- Build < 100000
     isVanilla = false,           -- Build 11500-20000
     isAnniversary = false,       -- Build 20500-30000
+    isWotLK335 = false,           -- Build 30300-30399 (Ascension target)
     isMoP = false,               -- Build 50500-60000
     USE_ATLAS = true,            -- Atlas API available (Retail only)
     string = "Retail (Build 120000)"  -- Human-readable version
@@ -232,7 +233,20 @@ KeyUI provides custom fallback implementations for Classic:
 
 ## Testing Checklist
 
-Before releasing, test on **all 4 WoW versions**:
+Before an Ascension release, test the primary target first. If publishing the retained all-in-one build elsewhere, also run the upstream client checks below.
+
+### Project Ascension / WotLK 3.3.5a (primary target)
+
+- [ ] Existing KeyUI settings and Blizzard bindings survive `/reload` and opening/closing KeyUI
+- [ ] Keyboard and mouse layouts show existing bindings, including `BUTTON4` and `BUTTON5`
+- [ ] Right-click spell schools contain ranked spells with correct icons
+- [ ] Direct spells, macros, Interface actions, and OPie rings can be assigned outside combat
+- [ ] Direct spell and action-slot hover tooltips display correctly
+- [ ] Spell/macro drops and KeyUI-to-KeyUI moves work
+- [ ] Long binding menus remain on-screen through **More...** pagination
+- [ ] Unbound labels are darker than bound labels and hover text has a readable background
+- [ ] Legacy Interface Options panel opens and saved settings persist
+- [ ] No Retail-only gamepad, Assisted Combat, atlas, charge, or loss-of-control API errors occur
 
 ### Retail (Build 120000, API dump 67088)
 - [ ] Addon loads without Lua errors
@@ -268,7 +282,9 @@ Before releasing, test on **all 4 WoW versions**:
 
 ### Addon Integration Regression Tests
 
-#### Dominos (11.2.x)
+ElvUI, BindPad, and Dominos have inherited compatibility code but are **not confirmed on Ascension**. The following remains an uncompleted regression checklist, not a support claim.
+
+#### Dominos (unconfirmed on Ascension)
 - [ ] Binding format `CLICK DominosActionButtonN:HOTKEY` resolves to a valid slot
 - [ ] Binding format `CLICK DominosActionButtonNHotkey:HOTKEY` resolves to the same slot
 - [ ] Binding format `CLICK MultiBarRightActionButtonNHotkey:HOTKEY` resolves to the expected slot
@@ -347,10 +363,10 @@ end
 The `KeyUI.toc` file supports multiple WoW versions via a single multi-value interface entry:
 
 ```
-## Interface: 120000, 50503, 20505, 11508
+## Interface: 30300, 120005, 50504, 20505, 11508
 ```
 
-This allows a **single addon package** to work on all WoW versions automatically.
+This retains a single package layout, with Project Ascension / 30300 as this fork's primary target.
 
 ### Building with BigWigsMods/packager
 
@@ -360,29 +376,27 @@ The packager automatically detects multi-version TOCs and creates a single packa
 # Install packager
 curl -s https://raw.githubusercontent.com/BigWigsMods/packager/master/release.sh | bash
 
-# Package will be uploaded to CurseForge/Wago with multi-version support
+# Produces a local package; choose fork-owned release destinations explicitly
 ```
 
-Users downloading from CurseForge/Wago will automatically receive the correct version for their client.
+The fork deliberately does not contain the original CurseForge, Wago, or WoWInterface project IDs. Do not publish fork builds through upstream KeyUI release identifiers.
 
 ## Version History
 
-### All-in-One Strategy (Current)
+### Ascension Fork Strategy (Current)
 
-- Single codebase supports all WoW versions
+- Ascension WotLK 3.3.5a is the primary release target
+- Upstream modern-client paths remain in the same codebase
 - Runtime version detection via `addon.VERSION`
-- API compatibility layer via `API_COMPAT`
+- Ports-and-adapters boundary for client-specific APIs
 - Custom fallback implementations for Classic
-- Total size: ~21MB (11MB textures + 10MB code)
 
-### Why All-in-One?
+### Why retain the upstream paths?
 
 1. **Maintainability**: Bug fixes apply to all versions instantly
 2. **No code duplication**: DRY principle maintained
-3. **Simplified testing**: One codebase to test across clients
-4. **Feature parity**: All versions get same features
-5. **User convenience**: Works everywhere without version checking
-6. **Small team reality**: 1-2 developers can maintain efficiently
+3. **Incremental validation**: Other clients can be regression-tested without rebuilding the architecture
+4. **Ascension isolation**: Client differences stay in the WotLK adapter instead of spreading through UI code
 
 ## Troubleshooting
 
@@ -413,6 +427,7 @@ Users downloading from CurseForge/Wago will automatically receive the correct ve
 
 ---
 
-**Maintained by:** KeyUI Development Team
-**Last Updated:** 2026-04-18
-**Supported Versions:** Retail 12.0.0+, MoP 5.5.3, Anniversary 2.5.5, Classic Era 1.15.8
+- **Fork target:** Project Ascension / WotLK 3.3.5a
+- **Original author:** Blandros
+- **Last updated:** 2026-07-21
+- **Retained but not primary:** Retail, MoP Classic, Anniversary, and Classic Era paths

@@ -1,13 +1,11 @@
 ## Interface: 30300, 120005, 50504, 20505, 11508
-## Author: Blandros
+## Author: Blandros (original), Ascension fork contributors
 ## Category: Action Bars
 ## Version: @project-version@
-## X-Curse-Project-ID: 913973
-## X-WoWI-ID: 26644
-## X-Wago-ID: b6XV0OGp
+## X-KeyUI-Fork: Project Ascension WotLK 3.3.5a
 
-## Title: KeyUI
-## Notes: Visualize your keyboard, mouse and keybinds.
+## Title: KeyUI Ascension
+## Notes: Ascension WoW 3.3.5a fork for visualizing and editing keyboard and mouse bindings.
 ## IconTexture: Interface\AddOns\KeyUI\Media\keyui_icon.blp
 
 ## SavedVariables: keyui_settings
