@@ -80,6 +80,31 @@ function addon:InitializeKeyBindSettings()
     keyui_settings.layout_edited_keyboard = keyui_settings.layout_edited_keyboard or {}
     keyui_settings.layout_edited_mouse = keyui_settings.layout_edited_mouse or {}
     keyui_settings.layout_edited_controller = keyui_settings.layout_edited_controller or {}
+
+    -- Older mouse layouts used N/A for the two side-button positions, and the
+    -- editor stored the event names Button4/Button5 instead of binding keys.
+    local function migrate_mouse_layouts(layouts)
+        for _, layout in pairs(layouts) do
+            if type(layout) == "table" then
+                for _, entry in ipairs(layout) do
+                    if type(entry) == "table" then
+                        local button_number = type(entry[1]) == "string"
+                            and (entry[1]:match("^Button(%d+)$") or entry[1]:match("^MouseButton(%d+)$"))
+                        if button_number then
+                            entry[1] = "BUTTON" .. button_number
+                        elseif entry[1] == "N/A" and entry[2] == 138 and entry[3] == 22 then
+                            entry[1] = "BUTTON4"
+                        elseif entry[1] == "N/A" and entry[2] == 138 and entry[3] == -30 then
+                            entry[1] = "BUTTON5"
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    migrate_mouse_layouts(keyui_settings.layout_current_mouse)
+    migrate_mouse_layouts(keyui_settings.layout_edited_mouse)
 end
 
 -- Initialize all settings

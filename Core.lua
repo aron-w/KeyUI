@@ -4649,8 +4649,11 @@ function addon:handle_key_down(frame, key)
     end
 
     -- Set the label to the modifier and the pressed key
+    local mouse_button_number = type(key) == "string" and key:match("^Button(%d+)$")
     if key == "MiddleButton" then
         frame.raw_key = modifier .. "BUTTON3" -- Handle middle mouse button
+    elseif mouse_button_number then
+        frame.raw_key = modifier .. "BUTTON" .. mouse_button_number
     else
         frame.raw_key = modifier .. key       -- Set label to the pressed key with modifier
     end
