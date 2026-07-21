@@ -21,7 +21,7 @@ function addon:save_keyboard_position()
 end
 
 function addon:create_keyboard_frame()
-    local keyboard_frame = CreateFrame("Frame", "keyui_keyboard_frame", UIParent, "BackdropTemplate")
+    local keyboard_frame = addon.ports.ui:CreateFrame("Frame", "keyui_keyboard_frame", UIParent, "BackdropTemplate")
     addon.keyboard_frame = keyboard_frame
 
     -- Manage ESC key behavior based on the setting
@@ -119,7 +119,7 @@ function addon:create_keyboard_frame()
 
     -- Create the close tab button
     if USE_ATLAS then
-        keyboard_frame.close_button = CreateFrame("Button", nil, keyboard_frame, "PanelTopTabButtonTemplate")
+        keyboard_frame.close_button = addon.ports.ui:CreateFrame("Button", nil, keyboard_frame, "PanelTopTabButtonTemplate")
     else
         keyboard_frame.close_button = addon:CreateTopTabButton(keyboard_frame)
     end
@@ -157,7 +157,7 @@ function addon:create_keyboard_frame()
 
     -- Create the settings tab button
     if USE_ATLAS then
-        keyboard_frame.controls_button = CreateFrame("Button", nil, keyboard_frame, "PanelTopTabButtonTemplate")
+        keyboard_frame.controls_button = addon.ports.ui:CreateFrame("Button", nil, keyboard_frame, "PanelTopTabButtonTemplate")
     else
         keyboard_frame.controls_button = addon:CreateTopTabButton(keyboard_frame)
     end
@@ -221,7 +221,7 @@ function addon:create_keyboard_frame()
 
     -- Create the options tab button
     if USE_ATLAS then
-        keyboard_frame.options_button = CreateFrame("Button", nil, keyboard_frame, "PanelTopTabButtonTemplate")
+        keyboard_frame.options_button = addon.ports.ui:CreateFrame("Button", nil, keyboard_frame, "PanelTopTabButtonTemplate")
     else
         keyboard_frame.options_button = addon:CreateTopTabButton(keyboard_frame)
     end
@@ -516,7 +516,7 @@ function addon:create_keyboard_buttons(index)
     local templates = addon.VERSION.isRetail
         and "SecureActionButtonTemplate, ActionButtonSpellFXTemplate, BackdropTemplate"
         or  "SecureActionButtonTemplate, BackdropTemplate"
-    local keyboard_button = CreateFrame("CheckButton", name, addon.keyboard_frame, templates)
+    local keyboard_button = addon.ports.ui:CreateFrame("CheckButton", name, addon.keyboard_frame, templates)
 
     -- Fire actions on release only. Registering LeftButtonDown/RightButtonDown
     -- caused the secure UseAction to run before the drag threshold was reached,
@@ -528,7 +528,7 @@ function addon:create_keyboard_buttons(index)
     keyboard_button:RegisterForDrag("LeftButton", "RightButton")
     keyboard_button:SetAttribute("useOnKeyDown", false)
     keyboard_button:EnableMouse(true)
-    keyboard_button:EnableKeyboard(true)
+    keyboard_button:EnableKeyboard(false)
     keyboard_button:EnableGamePadButton(true)
     keyboard_button:SetMovable(true)
     keyboard_button:SetClampedToScreen(true)
@@ -543,7 +543,7 @@ function addon:create_keyboard_buttons(index)
     keyboard_button:SetBackdrop(backdropInfo)
 
     -- Create a separate frame for the edge and apply only the edge (no background)
-    keyboard_button.edge = CreateFrame("Frame", nil, keyboard_button, "BackdropTemplate")
+    keyboard_button.edge = addon.ports.ui:CreateFrame("Frame", nil, keyboard_button, "BackdropTemplate")
     keyboard_button.edge:SetAllPoints()
     local edgeBackdropInfo = {
         edgeFile = "Interface\\AddOns\\KeyUI\\Media\\Edge\\keycap_edge",
@@ -601,7 +601,7 @@ function addon:create_keyboard_buttons(index)
     keyboard_button.highlight:Hide()
 
     -- Keypress highlight border (brief glow when key is pressed)
-    keyboard_button.keypress_highlight = CreateFrame("Frame", nil, keyboard_button, "BackdropTemplate")
+    keyboard_button.keypress_highlight = addon.ports.ui:CreateFrame("Frame", nil, keyboard_button, "BackdropTemplate")
     keyboard_button.keypress_highlight:SetPoint("TOPLEFT", keyboard_button, "TOPLEFT", -3, 3)
     keyboard_button.keypress_highlight:SetPoint("BOTTOMRIGHT", keyboard_button, "BOTTOMRIGHT", 3, -3)
     keyboard_button.keypress_highlight:SetBackdrop({ edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 16 })
@@ -617,6 +617,8 @@ function addon:create_keyboard_buttons(index)
         local slot = self.slot
 
         if addon.keyboard_locked == false then
+
+            keyboard_button:EnableKeyboard(true)
 
             keyboard_button:SetScript("OnKeyDown", function(_, key)
                 addon:handle_key_down(addon.current_hovered_button, key)
@@ -655,15 +657,19 @@ function addon:create_keyboard_buttons(index)
 
     -- Drag start: pick up action from slot (locked mode only, outside combat).
     keyboard_button:SetScript("OnDragStart", function(self, mousebutton)
-        if addon.keyboard_locked ~= false and mousebutton == "LeftButton" then
-            addon:handle_action_drag(self)
+        if addon.keyboard_locked ~= false and (mousebutton == nil or mousebutton == "LeftButton") then
+            addon:begin_key_button_drag(self)
         end
+    end)
+
+    keyboard_button:SetScript("OnDragStop", function()
+        addon:finish_key_button_drag()
     end)
 
     -- Receive drag: place action into slot (locked mode only, outside combat).
     keyboard_button:SetScript("OnReceiveDrag", function(self)
         if addon.keyboard_locked ~= false then
-            addon:handle_action_drag(self)
+            addon:complete_key_button_drop(self)
         end
     end)
 
@@ -694,7 +700,7 @@ function addon:create_keyboard_buttons(index)
         elseif mousebutton == "RightButton" then
             addon.current_clicked_key = self    -- save the current clicked key
             addon.current_slot = self.slot      -- save the current clicked slot
-            MenuUtil.CreateContextMenu(self, addon.context_menu_generator)
+            addon.ports.ui:CreateContextMenu(self, addon.context_menu_generator)
         end
     end)
 

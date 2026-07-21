@@ -2,7 +2,7 @@ local name, addon = ...
 
 function addon:create_selection_frame()
     -- Create the main selection frame
-    local selection_frame = CreateFrame("Frame", "keyui_selection_frame", UIParent, "BackdropTemplate")
+    local selection_frame = addon.ports.ui:CreateFrame("Frame", "keyui_selection_frame", UIParent, "BackdropTemplate")
     addon.selection_frame = selection_frame
 
     tinsert(UISpecialFrames, "keyui_selection_frame")
@@ -29,7 +29,7 @@ function addon:create_selection_frame()
 
 
     -- Create a secondary frame at the bottom for instructions and buttons
-    local top_frame = CreateFrame("Frame", nil, selection_frame, "BackdropTemplate")
+    local top_frame = addon.ports.ui:CreateFrame("Frame", nil, selection_frame, "BackdropTemplate")
     top_frame:SetSize(total_width, 50)  -- Height for the controls section
     top_frame:SetPoint("BOTTOM", selection_frame, "TOP", 0, 0)  -- Adjust positioning as needed
 
@@ -42,14 +42,18 @@ function addon:create_selection_frame()
 
     -- Create instructions text
     local instructions_text = top_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    instructions_text:SetPoint("CENTER", top_frame, "CENTER", 0, 0)
+    instructions_text:SetPoint("CENTER", top_frame, "CENTER", 0, 8)
     instructions_text:SetText("Select One or More Devices to Visualize")
     instructions_text:SetFont(addon:GetFont(), addon:GetFontSize(1.75))
     addon:RegisterFontString(instructions_text, 1.75)
     instructions_text:SetTextColor(1, 1, 1, 1)
 
+    local hotkey_help = top_frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    hotkey_help:SetPoint("TOP", instructions_text, "BOTTOM", 0, -3)
+    hotkey_help:SetText("After loading, right-click any displayed key to configure its hotkey.")
+
     -- Create a secondary frame at the bottom for instructions and buttons
-    local bottom_frame = CreateFrame("Frame", nil, selection_frame, "BackdropTemplate")
+    local bottom_frame = addon.ports.ui:CreateFrame("Frame", nil, selection_frame, "BackdropTemplate")
 
     local button_width = selection_frame:GetWidth() / 2 - 30  -- 1/2 of the width
     local one_quarter_offset = selection_frame:GetWidth() / 4  -- 1/4 of the width
@@ -100,15 +104,12 @@ function addon:create_selection_frame()
 
     cancel_button:SetScript("OnClick", function()
         addon:hide_all_frames()
-        keyui_settings.show_keyboard = false
-        keyui_settings.show_mouse = false
-        keyui_settings.show_controller = false
     end)
 
     -- Helper function to create a child frame with hover effects and a label
     local function create_child_frame(parent, texture_path, frame_width, frame_height, x_offset, settings_key, label_text)
         -- Create the child frame
-        local selection_backdrop_frame = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+        local selection_backdrop_frame = addon.ports.ui:CreateFrame("Frame", nil, parent, "BackdropTemplate")
         selection_backdrop_frame:SetSize(frame_width - 4, frame_height)
 
         -- Set the position of the frame to the center of its x_offset, but keep the child centered

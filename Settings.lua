@@ -1,5 +1,65 @@
 local _, addon = ...
 
+-- The modern Settings API does not exist in the 3.3.5 client. Keep the
+-- application-facing entry point and provide a small legacy adapter panel.
+if not Settings or not Settings.RegisterVerticalLayoutCategory then
+    local initialized = false
+
+    local function create_checkbox(parent, label, setting_key, y)
+        local checkbox = addon.ports.ui:CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+        checkbox:SetPoint("TOPLEFT", 20, y)
+        local text = checkbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        text:SetPoint("LEFT", checkbox, "RIGHT", 2, 0)
+        text:SetText(label)
+        checkbox:SetScript("OnShow", function(self)
+            self:SetChecked(keyui_settings and keyui_settings[setting_key] == true)
+        end)
+        checkbox:SetScript("OnClick", function(self)
+            keyui_settings[setting_key] = not not self:GetChecked()
+        end)
+        return checkbox, text
+    end
+
+    local function InitializeSettingsPanel()
+        if initialized then return end
+        initialized = true
+
+        local panel = addon.ports.ui:CreateFrame("Frame", "KeyUILegacySettingsPanel", UIParent)
+        panel.name = "KeyUI"
+        addon.settingsPanel = panel
+
+        local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+        title:SetPoint("TOPLEFT", 16, -16)
+        title:SetText("KeyUI")
+
+        local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+        subtitle:SetText("Ascension / WotLK 3.3.5a settings")
+
+        create_checkbox(panel, "Show keyboard", "show_keyboard", -62)
+        create_checkbox(panel, "Show mouse", "show_mouse", -92)
+        create_checkbox(panel, "Show controller", "show_controller", -122)
+        local keypress_checkbox, keypress_text = create_checkbox(panel, "Show keypress highlight", "show_keypress_highlight", -152)
+        if not addon.ports.ui:SupportsKeyboardPropagation() then
+            keyui_settings.show_keypress_highlight = false
+            keypress_checkbox:SetChecked(false)
+            keypress_checkbox:Disable()
+            keypress_text:SetText("Show keypress highlight (unavailable on the 3.3.5 client)")
+        end
+
+        local hotkey_help = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        hotkey_help:SetPoint("TOPLEFT", 20, -200)
+        hotkey_help:SetWidth(560)
+        hotkey_help:SetJustifyH("LEFT")
+        hotkey_help:SetText("Configure hotkeys: open KeyUI, then right-click a key on the keyboard, mouse, or controller display. Choose Spells, Macro, Interface, or Unbind.")
+
+        InterfaceOptions_AddCategory(panel)
+    end
+
+    addon.InitializeSettingsPanel = InitializeSettingsPanel
+    return
+end
+
 -- Register Settings category
 local category, layout = Settings.RegisterVerticalLayoutCategory("KeyUI")
 addon.settingsCategory = category

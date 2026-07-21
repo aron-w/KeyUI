@@ -1,5 +1,13 @@
 local name, addon = ...
 
+local function set_solid_color(texture, r, g, b, a)
+    if texture.SetColorTexture then
+        texture:SetColorTexture(r, g, b, a)
+    else
+        texture:SetTexture(r, g, b, a)
+    end
+end
+
 -- ============================================================================
 -- ActionButton.lua – Shared factory functions for KeyUI secure action buttons
 -- ============================================================================
@@ -17,7 +25,7 @@ local name, addon = ...
 -- Charge-recharge cooldown: thin edge ring, no swipe, no countdown numbers.
 -- Shown only when currentCharges < maxCharges.
 function addon.CreateChargeCooldownFrame(button)
-    local cd = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
+    local cd = addon.ports.ui:CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
     cd:ClearAllPoints()
     cd:SetAllPoints(button.icon)
     cd:SetFrameLevel(button:GetFrameLevel() + 2)
@@ -32,7 +40,7 @@ end
 -- Loss-of-Control cooldown: red swipe for stun/fear/silence.
 -- Shown on top of the normal cooldown when LoC duration > main cooldown.
 function addon.CreateLoCCooldownFrame(button)
-    local cd = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
+    local cd = addon.ports.ui:CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
     cd:ClearAllPoints()
     cd:SetAllPoints(button.icon)
     cd:SetFrameLevel(button:GetFrameLevel() + 3)
@@ -48,7 +56,7 @@ end
 function addon.CreateFlashTexture(button)
     local tex = button:CreateTexture(nil, "ARTWORK", nil, 1)
     tex:SetAllPoints(button.icon)
-    tex:SetColorTexture(1, 0.1, 0.1, 0.4)
+    set_solid_color(tex, 1, 0.1, 0.1, 0.4)
     tex:Hide()
     return tex
 end
@@ -57,7 +65,7 @@ end
 -- Implemented as a child Frame (FrameLevel+4) so it renders above the cooldown
 -- child frames (+1, +2, +3) which otherwise obscure a plain texture on the parent.
 function addon.CreateEquippedBorder(button)
-    local f = CreateFrame("Frame", nil, button)
+    local f = addon.ports.ui:CreateFrame("Frame", nil, button)
     -- Extend 5 px outward beyond the icon on each side; the atlas border texture has
     -- transparent padding before the visible border line so we need extra room.
     f:SetPoint("TOPLEFT",     button.icon, "TOPLEFT",     -5,  5)
@@ -80,7 +88,7 @@ end
 local autocast_template_name, autocast_needs_name
 local function resolve_autocast_template()
     if autocast_template_name then return end
-    if C_XMLUtil.GetTemplateInfo("AutoCastOverlayTemplate") then
+    if C_XMLUtil and C_XMLUtil.GetTemplateInfo and C_XMLUtil.GetTemplateInfo("AutoCastOverlayTemplate") then
         autocast_template_name, autocast_needs_name = "AutoCastOverlayTemplate", false
     else
         autocast_template_name, autocast_needs_name = "AutoCastShineTemplate", true
@@ -89,7 +97,7 @@ end
 
 function addon.CreateAutoCastOverlay(button, name_prefix)
     resolve_autocast_template()
-    local overlay = CreateFrame("Frame",
+    local overlay = addon.ports.ui:CreateFrame("Frame",
         autocast_needs_name and (name_prefix .. "_AutoCast") or nil,
         button, autocast_template_name)
     overlay:SetAllPoints(button.icon)
@@ -107,11 +115,18 @@ function addon:SetButtonActionSlot(button, slot)
     button.active_slot = slot
     if not InCombatLockdown() then
         if slot and slot > 0 then
-            button:SetAttribute("type", "action")
+            -- Only left-click executes the action; right-click belongs to KeyUI's menu.
+            button:SetAttribute("type", nil)
+            button:SetAttribute("type1", "action")
+            button:SetAttribute("type2", nil)
             button:SetAttribute("action", slot)
+            button:SetAttribute("action1", slot)
         else
             button:SetAttribute("type", nil)
+            button:SetAttribute("type1", nil)
+            button:SetAttribute("type2", nil)
             button:SetAttribute("action", nil)
+            button:SetAttribute("action1", nil)
         end
     end
 end
@@ -138,13 +153,15 @@ function addon:UpdateButtonChargeCooldown(button)
 
     local charges, maxCharges, chargeStart, chargeDuration, chargeModRate
     if C_ActionBar and C_ActionBar.GetActionCharges then
-        local info = C_ActionBar.GetActionCharges(button.active_slot)
-        if info then
-            charges      = info.currentCharges
-            maxCharges   = info.maxCharges
-            chargeStart  = info.cooldownStartTime
-            chargeDuration = info.cooldownDuration
-            chargeModRate  = info.chargeModRate
+        local first, second, third, fourth, fifth = C_ActionBar.GetActionCharges(button.active_slot)
+        if type(first) == "table" then
+            charges        = first.currentCharges
+            maxCharges     = first.maxCharges
+            chargeStart    = first.cooldownStartTime
+            chargeDuration = first.cooldownDuration
+            chargeModRate  = first.chargeModRate
+        else
+            charges, maxCharges, chargeStart, chargeDuration, chargeModRate = first, second, third, fourth, fifth
         end
     elseif GetActionCharges then
         charges, maxCharges, chargeStart, chargeDuration, chargeModRate = GetActionCharges(button.active_slot)
@@ -257,7 +274,7 @@ end
 do
     local flashTime = 0
     local flashOn   = false
-    local flashFrame = CreateFrame("Frame")
+    local flashFrame = addon.ports.ui:CreateFrame("Frame")
     flashFrame:SetScript("OnUpdate", function(_, elapsed)
         if not addon.open then return end
 
@@ -347,7 +364,7 @@ function addon:ShowButtonProcGlow(button, useAltGlow)
             -- it to the icon exactly, without fighting useAtlasSize=true template internals.
             if not button.KeyUI_ProcAltGlow then
                 local iw, ih = button.icon:GetSize()
-                local g = CreateFrame("Frame", nil, button)
+                local g = addon.ports.ui:CreateFrame("Frame", nil, button)
                 g:SetFrameLevel(button:GetFrameLevel() + 5)
                 g:SetPoint("CENTER", button.icon, "CENTER", 0, 0)
                 g:SetSize(iw * 1.1, ih * 1.1)
@@ -356,7 +373,7 @@ function addon:ShowButtonProcGlow(button, useAltGlow)
                 if addon.VERSION.USE_ATLAS then
                     tex:SetAtlas("UI-HUD-RotationHelper-ProcAltGlow")
                 else
-                    tex:SetColorTexture(1, 0.82, 0, 0.6)  -- golden fallback
+                    set_solid_color(tex, 1, 0.82, 0, 0.6)  -- golden fallback
                 end
                 button.KeyUI_ProcAltGlow = g
             end
@@ -370,7 +387,7 @@ function addon:ShowButtonProcGlow(button, useAltGlow)
             -- Anchor to icon CENTER (not button CENTER) so the +4 Y offset on keyboard
             -- icons is respected; size from icon (not button) so it scales correctly.
             local iw, ih = button.icon:GetSize()
-            local f = CreateFrame("Frame", nil, button, "ActionButtonSpellAlertTemplate")
+            local f = addon.ports.ui:CreateFrame("Frame", nil, button, "ActionButtonSpellAlertTemplate")
             f:SetSize(iw * 1.4, ih * 1.4)
             f:SetPoint("CENTER", button.icon, "CENTER", 0, 0)
             button.SpellActivationAlert = f
@@ -395,7 +412,7 @@ function addon:ShowButtonProcGlow(button, useAltGlow)
         return
     end
     -- Classic Era: native overlay glow (ActionButton_ShowOverlayGlow exists in 1.15.x)
-    ActionButton_ShowOverlayGlow(button)
+    if ActionButton_ShowOverlayGlow then ActionButton_ShowOverlayGlow(button) end
 end
 
 function addon:HideButtonProcGlow(button)
@@ -410,7 +427,7 @@ function addon:HideButtonProcGlow(button)
         return
     end
     -- Classic Era: native overlay glow
-    ActionButton_HideOverlayGlow(button)
+    if ActionButton_HideOverlayGlow then ActionButton_HideOverlayGlow(button) end
 end
 
 -- Called when SPELL_ACTIVATION_OVERLAY_GLOW_SHOW fires with a spellID.

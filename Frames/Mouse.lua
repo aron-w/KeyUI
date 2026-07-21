@@ -20,7 +20,7 @@ function addon:save_mouse_position()
 end
 
 function addon:create_mouse_image()
-    local mouse_image = CreateFrame("Frame", "keyui_mouse_image", UIParent)
+    local mouse_image = addon.ports.ui:CreateFrame("Frame", "keyui_mouse_image", UIParent)
     addon.mouse_image = mouse_image
 
     -- Manage ESC key behavior based on the setting
@@ -104,7 +104,7 @@ function addon:create_mouse_image()
 
     -- Open context menu above the button
     mouse_image.menu_button:SetScript("OnClick", function(self)
-        local menu = MenuUtil.CreateContextMenu(self, function(_, rootDescription)
+        local menu = addon.ports.ui:CreateContextMenu(self, function(_, rootDescription)
             local bg = rootDescription:CreateCheckbox("Background",
                 function() return keyui_settings.show_mouse_graphic end,
                 function()
@@ -216,7 +216,7 @@ function addon:create_mouse_image()
 end
 
 function addon:create_mouse_frame()
-    local mouse_frame = CreateFrame("Frame", "keyui_mouse_frame", addon.mouse_image)
+    local mouse_frame = addon.ports.ui:CreateFrame("Frame", "keyui_mouse_frame", addon.mouse_image)
     addon.mouse_frame = mouse_frame
 
     -- Manage ESC key behavior based on the setting
@@ -372,7 +372,7 @@ function addon:create_mouse_buttons(index)
     local templates = addon.VERSION.isRetail
         and "SecureActionButtonTemplate, ActionButtonSpellFXTemplate"
         or  "SecureActionButtonTemplate"
-    local mouse_button = CreateFrame("CheckButton", name, addon.mouse_image, templates)
+    local mouse_button = addon.ports.ui:CreateFrame("CheckButton", name, addon.mouse_image, templates)
 
     -- Fire actions on release only. Registering LeftButtonDown/RightButtonDown
     -- caused the secure UseAction to run before the drag threshold was reached,
@@ -384,7 +384,7 @@ function addon:create_mouse_buttons(index)
     mouse_button:RegisterForDrag("LeftButton", "RightButton")
     mouse_button:SetAttribute("useOnKeyDown", false)
     mouse_button:EnableMouse(true)
-    mouse_button:EnableKeyboard(true)
+    mouse_button:EnableKeyboard(false)
     mouse_button:EnableGamePadButton(true)
     mouse_button:SetMovable(true)
     mouse_button:SetClampedToScreen(true)
@@ -455,7 +455,7 @@ function addon:create_mouse_buttons(index)
     mouse_button.highlight:Hide()
 
     -- Keypress highlight border (brief glow when key is pressed)
-    mouse_button.keypress_highlight = CreateFrame("Frame", nil, mouse_button, "BackdropTemplate")
+    mouse_button.keypress_highlight = addon.ports.ui:CreateFrame("Frame", nil, mouse_button, "BackdropTemplate")
     mouse_button.keypress_highlight:SetPoint("TOPLEFT", mouse_button, "TOPLEFT", -3, 3)
     mouse_button.keypress_highlight:SetPoint("BOTTOMRIGHT", mouse_button, "BOTTOMRIGHT", 3, -3)
     mouse_button.keypress_highlight:SetBackdrop({ edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 16 })
@@ -466,12 +466,12 @@ function addon:create_mouse_buttons(index)
     mouse_button:SetScript("OnEnter", function(self)
         addon.current_hovered_button = mouse_button -- save the current hovered button to re-trigger tooltip
         addon:button_mouse_over(mouse_button)
-        mouse_button:EnableKeyboard(true)
-        mouse_button:EnableMouseWheel(true)
-
         local active_slot = self.active_slot
 
         if addon.mouse_locked == false and not addon.is_moving then
+
+            mouse_button:EnableKeyboard(true)
+            mouse_button:EnableMouseWheel(true)
 
             mouse_button:SetScript("OnKeyDown", function(_, key)
                 addon:handle_key_down(addon.current_hovered_button, key)
@@ -508,15 +508,19 @@ function addon:create_mouse_buttons(index)
 
     -- Drag start: pick up action from slot (locked mode only, outside combat).
     mouse_button:SetScript("OnDragStart", function(self, mousebutton)
-        if addon.mouse_locked ~= false and mousebutton == "LeftButton" then
-            addon:handle_action_drag(self)
+        if addon.mouse_locked ~= false and (mousebutton == nil or mousebutton == "LeftButton") then
+            addon:begin_key_button_drag(self)
         end
+    end)
+
+    mouse_button:SetScript("OnDragStop", function()
+        addon:finish_key_button_drag()
     end)
 
     -- Receive drag: place action into slot (locked mode only, outside combat).
     mouse_button:SetScript("OnReceiveDrag", function(self)
         if addon.mouse_locked ~= false then
-            addon:handle_action_drag(self)
+            addon:complete_key_button_drop(self)
         end
     end)
 
@@ -545,7 +549,7 @@ function addon:create_mouse_buttons(index)
         elseif mousebutton == "RightButton" then
             addon.current_clicked_key = self    -- save the current clicked key
             addon.current_slot = self.slot      -- save the current clicked slot
-            MenuUtil.CreateContextMenu(self, addon.context_menu_generator)
+            addon.ports.ui:CreateContextMenu(self, addon.context_menu_generator)
         end
     end)
 

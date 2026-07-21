@@ -39,14 +39,7 @@ do
     local compat_build = (addon.VERSION and addon.VERSION.build) or select(4, GetBuildInfo()) or 0
 
     function addon.compat.is_addon_loaded(addon_name)
-        if C_AddOns and C_AddOns.IsAddOnLoaded then
-            local _, loaded = C_AddOns.IsAddOnLoaded(addon_name)
-            return loaded == true
-        end
-        if IsAddOnLoaded then
-            return IsAddOnLoaded(addon_name)
-        end
-        return false
+        return addon.ports.addons:IsLoaded(addon_name)
     end
 
     function addon.compat.has_event(event_name)
@@ -58,14 +51,8 @@ do
     end
 
     function addon.compat.register_event(frame, event_name)
-        if not frame or not event_name then
-            return false
-        end
-        if addon.compat.has_event(event_name) then
-            frame:RegisterEvent(event_name)
-            return true
-        end
-        return false
+        if not addon.compat.has_event(event_name) then return false end
+        return addon.ports.events:Register(frame, event_name)
     end
 end
 
@@ -164,14 +151,14 @@ local function initialize_keybind_patterns()
         end,
 
         -- Spell
-        ["^Spell (.+)$"] = function(binding, button)
-            local spell_name = binding:match("^Spell (.+)$")
+        ["^[Ss][Pp][Ee][Ll][Ll] (.+)$"] = function(binding, button)
+            local spell_name = binding:match("^[Ss][Pp][Ee][Ll][Ll] (.+)$")
             return addon:process_spell(spell_name, button)
         end,
 
         -- Macro
-        ["^Macro (.+)$"] = function(binding, button)
-            local macro_name = binding:match("^Macro (.+)$")
+        ["^[Mm][Aa][Cc][Rr][Oo] (.+)$"] = function(binding, button)
+            local macro_name = binding:match("^[Mm][Aa][Cc][Rr][Oo] (.+)$")
             return addon:process_macro(macro_name, button)
         end,
     }
@@ -335,9 +322,7 @@ function addon:OpenSettings()
         print("KeyUI: Cannot open settings while in combat.")
         return
     end
-    if self.settingsCategory and self.settingsCategory.GetID then
-        Settings.OpenToCategory(self.settingsCategory:GetID())
-    else
+    if not self.ports.settings:Open() then
         print("KeyUI: Settings panel not available. Please reload the UI with /reload")
     end
 end
@@ -514,7 +499,7 @@ function addon:EnsurePerformanceOverlay()
         return existing_frame
     end
 
-    local frame = CreateFrame("Frame", "KeyUIPerformanceOverlay", UIParent, "BackdropTemplate")
+    local frame = addon.ports.ui:CreateFrame("Frame", "KeyUIPerformanceOverlay", UIParent, "BackdropTemplate")
     frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -16)
     frame:SetSize(340, 145)
     frame:SetFrameStrata("TOOLTIP")
@@ -545,8 +530,8 @@ function addon:UpdatePerformanceOverlayVisibility()
     if enabled then
         local frame = self:EnsurePerformanceOverlay()
         frame:Show()
-        if not self.performance_overlay_ticker and C_Timer and C_Timer.NewTicker then
-            self.performance_overlay_ticker = C_Timer.NewTicker(1, function()
+        if not self.performance_overlay_ticker then
+            self.performance_overlay_ticker = addon.ports.timers:NewTicker(1, function()
                 addon:UpdatePerformanceOverlayText()
             end)
         end
@@ -1392,21 +1377,67 @@ function addon:ResetAddonSettings()
 end
 
 -- Handle addon load event and initialize
-EventUtil.ContinueOnAddOnLoaded(..., function()
+addon.ports.lifecycle:OnLoaded(name, function()
     -- Load additional saved settings and update the UI
     addon:InitializeSettings()
+    addon:EnsureSelectedLayouts()
 
     -- Register the minimap button using LibDBIcon
     LibDBIcon:Register("KeyUI", miniButton, keyui_settings.minimap)
 
     -- Initialize Settings panel
-    if addon.InitializeSettingsPanel then
-        addon.InitializeSettingsPanel()
-    end
+    addon.ports.settings:RegisterPanel()
 end)
+
+local function ensure_selected_layout(current, keybind, defaults, edited, fallback)
+    local current_name = next(current)
+    local current_layout = current_name and (defaults[current_name] or edited[current_name])
+    if current_layout then
+        current[current_name] = current_layout
+        keybind.currentboard = current_name
+        return
+    end
+
+    local requested_name = keybind.currentboard
+    local requested_layout = requested_name and (defaults[requested_name] or edited[requested_name])
+    local selected_name = requested_layout and requested_name or fallback
+    local selected_layout = requested_layout or defaults[fallback]
+    if not selected_layout then return end
+
+    wipe(current)
+    current[selected_name] = selected_layout
+    keybind.currentboard = selected_name
+end
+
+-- Repair missing/stale selections without replacing a valid saved layout.
+function addon:EnsureSelectedLayouts()
+    ensure_selected_layout(
+        keyui_settings.layout_current_keyboard,
+        keyui_settings.key_bind_settings_keyboard,
+        self.default_keyboard_layouts,
+        keyui_settings.layout_edited_keyboard,
+        "QWERTY_100%"
+    )
+    ensure_selected_layout(
+        keyui_settings.layout_current_mouse,
+        keyui_settings.key_bind_settings_mouse,
+        self.default_mouse_layouts,
+        keyui_settings.layout_edited_mouse,
+        "Layout_2+4x3"
+    )
+    ensure_selected_layout(
+        keyui_settings.layout_current_controller,
+        keyui_settings.key_bind_settings_controller,
+        self.default_controller_layouts,
+        keyui_settings.layout_edited_controller,
+        "xbox"
+    )
+end
 
 -- Main function to load the addon.
 function addon:load()
+
+    addon:EnsureSelectedLayouts()
 
     if keyui_settings.show_keyboard == false and keyui_settings.show_mouse == false and keyui_settings.show_controller == false then
         -- Create the selection frame if not already created.
@@ -1479,58 +1510,21 @@ function addon:load_spellbook()
     addon.spells = {}
     addon.spells_tab_order = {}  -- preserves API order: General → Class → Spec(s)
 
-    if API_COMPAT.has_modern_spellbook then
-        -- RETAIL: Modern C_SpellBook API
-        for i = 1, C_SpellBook.GetNumSpellBookSkillLines() do
-            local skillLineInfo = C_SpellBook.GetSpellBookSkillLineInfo(i)
-            local name = skillLineInfo.name
-            local offset, numSlots = skillLineInfo.itemIndexOffset, skillLineInfo.numSpellBookItems
-
-            if name then
-                addon.spells[name] = {}
-                table.insert(addon.spells_tab_order, name)
-                for j = offset + 1, offset + numSlots do
-                    local spellBookItemInfo = C_SpellBook.GetSpellBookItemInfo(j, Enum.SpellBookSpellBank.Player)
-                    local spellName = spellBookItemInfo.name
-                    local spellID = spellBookItemInfo.spellID
-                    local isPassive = spellBookItemInfo.isPassive
-
-                    if spellName and not isPassive then
-                        table.insert(addon.spells[name], { name = spellName, id = spellID })
-                    end
-                end
-            end
+    local loaded = addon.ports.spells:VisitSpellbook(function(kind, tab_name, spell_name, spell_id, book_slot, spell_rank, spell_icon)
+        if kind == "tab" then
+            addon.spells[tab_name] = addon.spells[tab_name] or {}
+            table.insert(addon.spells_tab_order, tab_name)
+        elseif kind == "spell" then
+            table.insert(addon.spells[tab_name], {
+                name = spell_name,
+                id = spell_id,
+                bookSlot = book_slot,
+                rank = spell_rank,
+                icon = spell_icon,
+            })
         end
-    elseif API_COMPAT.has_legacy_spell_api then
-        -- ANNIVERSARY/CLASSIC: Legacy global spell API
-        local BOOKTYPE_SPELL = "spell"
-        local numTabs = GetNumSpellTabs()
-
-        for tabIndex = 1, numTabs do
-            local name, texture, offset, numSlots, _, offSpecID = GetSpellTabInfo(tabIndex)
-
-            -- Anniversary: offSpecID is 0 for normal tabs, not nil
-            if name and (not offSpecID or offSpecID == 0) then  -- Skip off-spec tabs
-                addon.spells[name] = {}
-                table.insert(addon.spells_tab_order, name)
-
-                for slotIndex = offset + 1, offset + numSlots do
-                    local spellType, spellID = GetSpellBookItemInfo(slotIndex, BOOKTYPE_SPELL)
-
-                    -- spellType: "SPELL", "PETACTION", "FUTURESPELL", "FLYOUT"
-                    if spellType == "SPELL" or spellType == "FUTURESPELL" then
-                        local spellName = GetSpellInfo(spellID)
-                        local isPassive = IsPassiveSpell(slotIndex, BOOKTYPE_SPELL)
-
-                        if spellName and not isPassive then
-                            table.insert(addon.spells[name], { name = spellName, id = spellID })
-                        end
-                    end
-                end
-            end
-        end
-    else
-        -- Fallback: No spell API available
+    end)
+    if not loaded then
         print("KeyUI: Warning - No compatible spell API found")
     end
 end
@@ -1906,7 +1900,7 @@ function addon:SetupButtonFade(frame)
     end
 
     local function schedule_fade()
-        C_Timer.After(0.1, function()
+        addon.ports.timers:After(0.1, function()
             if not is_any_hovered() then
                 fade_out()
             end
@@ -2019,13 +2013,13 @@ function addon:CreateLockToggleButtons(frame, frame_level, custom_font, use_bott
         local button
         if use_bottom_tabs then
             if USE_ATLAS then
-                button = CreateFrame("Button", nil, frame, "PanelTabButtonTemplate")
+                button = addon.ports.ui:CreateFrame("Button", nil, frame, "PanelTabButtonTemplate")
             else
                 button = addon:CreateTabButton(frame)
             end
         else
             if USE_ATLAS then
-                button = CreateFrame("Button", nil, frame, "PanelTopTabButtonTemplate")
+                button = addon.ports.ui:CreateFrame("Button", nil, frame, "PanelTopTabButtonTemplate")
             else
                 button = addon:CreateTopTabButton(frame)
             end
@@ -2160,7 +2154,7 @@ function addon:CreateToggleMenuButton(frame, bg_setting)
     frame.menu_button = menu_button
 
     menu_button:SetScript("OnClick", function(self)
-        local menu = MenuUtil.CreateContextMenu(self, function(_, rootDescription)
+        local menu = addon.ports.ui:CreateContextMenu(self, function(_, rootDescription)
             local bg = rootDescription:CreateCheckbox("Background",
                 function() return keyui_settings[bg_setting] end,
                 function()
@@ -2383,12 +2377,22 @@ function addon:get_controls_frame()
 end
 
 function addon:create_tooltip()
-    -- Create the tooltip frame with the GlowBoxTemplate.
-    local keyui_tooltip_frame = CreateFrame("Frame", nil, UIParent, "GlowBoxTemplate")
+    local keyui_tooltip_frame = addon.ports.ui:CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
     addon.keyui_tooltip_frame = keyui_tooltip_frame -- Save the tooltip to the addon table for reuse.
 
     keyui_tooltip_frame:SetFrameStrata("TOOLTIP")
     keyui_tooltip_frame:SetHeight(50)
+    keyui_tooltip_frame:SetClampedToScreen(true)
+    keyui_tooltip_frame:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    keyui_tooltip_frame:SetBackdropColor(0, 0, 0, 0.92)
+    keyui_tooltip_frame:SetBackdropBorderColor(0.55, 0.55, 0.55, 1)
 
     -- Add a text to the tooltip.
     keyui_tooltip_frame.key = keyui_tooltip_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -2425,17 +2429,22 @@ function addon:button_mouse_over(button)
     local short_modifier_string = (addon.current_modifier_string or "")
 
     -- Position the tooltip next to the hovered button
+    addon.keyui_tooltip_frame:ClearAllPoints()
     addon.keyui_tooltip_frame:SetPoint("BOTTOMLEFT", button, "BOTTOMRIGHT", 6, 5)
 
     -- Adjust the tooltip size and text positions for gamepad buttons
     if addon.gamepad_buttons[raw_key] then
         addon.keyui_tooltip_frame:SetHeight(74) -- Increase height for gamepad buttons
-        addon.keyui_tooltip_frame.key:SetScale(0.8)
+        if addon.keyui_tooltip_frame.key.SetScale then
+            addon.keyui_tooltip_frame.key:SetScale(0.8)
+        end
         addon.keyui_tooltip_frame.key:SetPoint("CENTER", addon.keyui_tooltip_frame, "CENTER", 0, 14) -- Adjust key text position
         addon.keyui_tooltip_frame.binding:SetPoint("CENTER", addon.keyui_tooltip_frame, "CENTER", 0, -22) -- Adjust binding text position
     else
         addon.keyui_tooltip_frame:SetHeight(50) -- Default height for non-gamepad buttons
-        addon.keyui_tooltip_frame.key:SetScale(1)
+        if addon.keyui_tooltip_frame.key.SetScale then
+            addon.keyui_tooltip_frame.key:SetScale(1)
+        end
         addon.keyui_tooltip_frame.key:SetPoint("CENTER", addon.keyui_tooltip_frame, "CENTER", 0, 10) -- Default key text position
         addon.keyui_tooltip_frame.binding:SetPoint("CENTER", addon.keyui_tooltip_frame, "CENTER", 0, -10) -- Default binding text position
     end
@@ -2472,11 +2481,19 @@ function addon:button_mouse_over(button)
         GameTooltip:SetPoint("TOPLEFT", button, "BOTTOMLEFT")
         GameTooltip:SetAction(addon.current_hovered_button.active_slot) -- Use SetAction for ActionButtons
         GameTooltip:Show()
-    elseif addon.current_hovered_button.spellid then
+    elseif addon.current_hovered_button.spellid or addon.current_hovered_button.spell_book_slot then
         GameTooltip:SetOwner(addon.current_hovered_button, "ANCHOR_NONE")
         GameTooltip:SetPoint("TOPLEFT", button, "BOTTOMLEFT")
-        GameTooltip:SetSpellByID(addon.current_hovered_button.spellid)
-        GameTooltip:Show()
+        local shown = addon.ports.spells:SetTooltip(
+            GameTooltip,
+            addon.current_hovered_button.spellid,
+            addon.current_hovered_button.spell_book_slot
+        )
+        if shown then
+            GameTooltip:Show()
+        else
+            GameTooltip:Hide()
+        end
     elseif addon.current_hovered_button.pet_action_index then
         GameTooltip:SetOwner(addon.current_hovered_button, "ANCHOR_NONE")
         GameTooltip:SetPoint("TOPLEFT", button, "BOTTOMLEFT")
@@ -2498,6 +2515,18 @@ local specific_bindings = {
     TURNLEFT = "Interface\\AddOns\\KeyUI\\Media\\Icons\\circle_left",
     TURNRIGHT = "Interface\\AddOns\\KeyUI\\Media\\Icons\\circle_right",
 }
+
+local fallback_binding_icon = "Interface\\Icons\\INV_Misc_Gear_01"
+local unbound_key_color = { 0.45, 0.45, 0.45 }
+
+local function set_key_label_bound_state(button, is_bound)
+    if not button.short_key then return end
+    if is_bound then
+        button.short_key:SetTextColor(1, 1, 1)
+    else
+        button.short_key:SetTextColor(unbound_key_color[1], unbound_key_color[2], unbound_key_color[3])
+    end
+end
 
 local function matches_opie_binding(binding)
     if type(binding) ~= "string" or binding == "" then
@@ -2540,6 +2569,7 @@ function addon:set_key(button)
 
     -- Loop through the keybind patterns and process the binding if the binding is not empty
     if binding ~= "" then
+        set_key_label_bound_state(button, true)
         local matched = false
         for pattern, handler in pairs(keybind_patterns) do
             if binding:find(pattern) then
@@ -2584,9 +2614,17 @@ function addon:set_key(button)
             button.icon:Show()
         end
 
+        local current_texture = button.icon.GetTexture and button.icon:GetTexture()
+        if not current_texture then
+            button.icon:SetTexture(fallback_binding_icon)
+            button.icon:SetSize(26, 26)
+            button.icon:Show()
+        end
+
         -- Handle interface action labels
         addon:create_action_labels(binding, button)
     else
+        set_key_label_bound_state(button, false)
         -- Handle empty bindings if the option is enabled
         if keyui_settings.show_empty_binds then
             addon:update_empty_binds(button)
@@ -2630,6 +2668,7 @@ function addon:reset_button_state(button)
     button.slot = nil
     addon:SetButtonActionSlot(button, nil)
     button.spellid = nil
+    button.spell_book_slot = nil
     button.pet_action_index = nil
     button.binding = nil
     button.is_active = nil
@@ -2663,9 +2702,11 @@ function addon:GetButtonCooldownData(button)
         local start, duration, modRate
 
         if API_COMPAT.has_modern_action_cooldown then
-            local info = C_ActionBar.GetActionCooldown(slot)
-            if info then
-                start, duration, modRate = info.startTime, info.duration, info.modRate
+            local first, second, _, fourth = C_ActionBar.GetActionCooldown(slot)
+            if type(first) == "table" then
+                start, duration, modRate = first.startTime, first.duration, first.modRate
+            else
+                start, duration, modRate = first, second, fourth
             end
         else
             local _
@@ -2686,12 +2727,18 @@ function addon:GetButtonCooldownData(button)
 
         -- No main cooldown – check charge recovery (covers charge-based spells).
         if API_COMPAT.has_modern_action_charges then
-            local ci = C_ActionBar.GetActionCharges(slot)
-            if ci and ci.maxCharges > 1 and ci.currentCharges < ci.maxCharges
-                    and ci.cooldownStartTime and ci.cooldownStartTime > 0 then
-                return ci.cooldownStartTime, ci.cooldownDuration, ci.chargeModRate or 1.0
+            local first, max_charges, charge_start, charge_duration, charge_mod_rate = C_ActionBar.GetActionCharges(slot)
+            if type(first) == "table" then
+                local ci = first
+                if ci.maxCharges > 1 and ci.currentCharges < ci.maxCharges
+                        and ci.cooldownStartTime and ci.cooldownStartTime > 0 then
+                    return ci.cooldownStartTime, ci.cooldownDuration, ci.chargeModRate or 1.0
+                end
+            elseif max_charges and max_charges > 1 and first and first < max_charges
+                    and charge_start and charge_start > 0 then
+                return charge_start, charge_duration, charge_mod_rate or 1.0
             end
-        else
+        elseif GetActionCharges then
             local charges, maxCharges, cs, cd, cr = GetActionCharges(slot)
             if maxCharges and maxCharges > 1 and charges and charges < maxCharges
                     and cs and cs > 0 then
@@ -2704,9 +2751,11 @@ function addon:GetButtonCooldownData(button)
 
     if button.spellid then
         if API_COMPAT.has_modern_spell_cooldown then
-            local info = C_Spell.GetSpellCooldown(button.spellid)
-            if info then
-                return info.startTime, info.duration, info.modRate
+            local first, duration, _, mod_rate = C_Spell.GetSpellCooldown(button.spellid)
+            if type(first) == "table" then
+                return first.startTime, first.duration, first.modRate
+            elseif first ~= nil then
+                return first, duration, mod_rate or 1.0
             end
         else
             local start, duration = GetSpellCooldown(button.spellid)
@@ -2726,7 +2775,7 @@ end
 -- Creates and configures a cooldown overlay frame for a button icon.
 -- CooldownFrameTemplate is required to initialize the C++ swipe renderer.
 function addon.CreateCooldownFrame(button, size)
-    local cd = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
+    local cd = addon.ports.ui:CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
     cd:ClearAllPoints() -- override template's setAllPoints="true"
     cd:SetFrameLevel(button:GetFrameLevel() + 1)
     cd:SetSize(size, size)
@@ -2859,8 +2908,10 @@ function addon:GetButtonCountText(button)
         if count > 9999 then return "*" end
         return count > 0 and tostring(count) or ""
     end
-    local charges, maxCharges = GetActionCharges(slot)
-    if maxCharges and maxCharges > 1 then return tostring(charges) end
+    if GetActionCharges then
+        local charges, maxCharges = GetActionCharges(slot)
+        if maxCharges and maxCharges > 1 then return tostring(charges) end
+    end
     return ""
 end
 
@@ -2889,7 +2940,7 @@ end
 function addon:UpdateButtonRange(button)
     if not button.short_key then return end
     if not keyui_settings.show_actionbar_mode or not button.active_slot then
-        button.short_key:SetTextColor(1, 1, 1)
+        set_key_label_bound_state(button, button.binding ~= nil and button.binding ~= "")
         return
     end
 
@@ -2917,9 +2968,9 @@ function addon:refresh_range()
 end
 
 function addon:clear_all_range()
-    for _, b in ipairs(addon.keys_keyboard)    do if b.short_key then b.short_key:SetTextColor(1, 1, 1) end end
-    for _, b in ipairs(addon.keys_mouse)       do if b.short_key then b.short_key:SetTextColor(1, 1, 1) end end
-    for _, b in ipairs(addon.keys_controller)  do if b.short_key then b.short_key:SetTextColor(1, 1, 1) end end
+    for _, b in ipairs(addon.keys_keyboard) do set_key_label_bound_state(b, b.binding ~= nil and b.binding ~= "") end
+    for _, b in ipairs(addon.keys_mouse) do set_key_label_bound_state(b, b.binding ~= nil and b.binding ~= "") end
+    for _, b in ipairs(addon.keys_controller) do set_key_label_bound_state(b, b.binding ~= nil and b.binding ~= "") end
 end
 
 -- Shows the pushed texture on the mapped action bar button when hovering a KeyUI button
@@ -2982,6 +3033,155 @@ function addon:handle_action_drag(button)
     addon:sync_dragged_action_slots(button, affected_slots)
 end
 
+local function get_button_binding_key(button)
+    if not button or not button.raw_key or button.raw_key == "" then return nil end
+    return addon.current_modifier_string .. button.raw_key
+end
+
+local function find_keyui_button(frame)
+    local current = frame
+    local depth = 0
+    while current and depth < 8 do
+        if current.raw_key and current.icon and current.readable_binding then return current end
+        if not current.GetParent then return nil end
+        local parent = current:GetParent()
+        if not parent or parent == current then return nil end
+        current = parent
+        depth = depth + 1
+    end
+end
+
+local function ensure_drag_preview()
+    if addon.key_button_drag_preview then return addon.key_button_drag_preview end
+
+    local preview = addon.ports.ui:CreateFrame("Frame", "KeyUIButtonDragPreview", UIParent, "BackdropTemplate")
+    preview:SetSize(190, 34)
+    preview:SetFrameStrata("TOOLTIP")
+    preview:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    preview:SetBackdropColor(0, 0, 0, 0.9)
+
+    preview.icon = preview:CreateTexture(nil, "ARTWORK")
+    preview.icon:SetSize(24, 24)
+    preview.icon:SetPoint("LEFT", preview, "LEFT", 6, 0)
+
+    preview.text = preview:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    preview.text:SetPoint("LEFT", preview.icon, "RIGHT", 6, 0)
+    preview.text:SetWidth(148)
+    preview.text:SetJustifyH("LEFT")
+
+    preview:SetScript("OnUpdate", function(self)
+        local x, y = GetCursorPosition()
+        local scale = UIParent:GetScale()
+        self:ClearAllPoints()
+        self:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x / scale + 14, y / scale + 14)
+    end)
+    preview:Hide()
+    addon.key_button_drag_preview = preview
+    return preview
+end
+
+local function show_drag_preview(button)
+    local preview = ensure_drag_preview()
+    local texture = button.icon and button.icon.GetTexture and button.icon:GetTexture()
+    if texture then
+        preview.icon:SetTexture(texture)
+        preview.icon:Show()
+    else
+        preview.icon:SetTexture(nil)
+        preview.icon:Hide()
+    end
+
+    local label = button.readable_binding and button.readable_binding:GetText()
+    if not label or label == "" then label = button.binding or button.raw_key or "Binding" end
+    preview.text:SetText(label)
+    preview:Show()
+end
+
+local function hide_drag_preview()
+    if addon.key_button_drag_preview then addon.key_button_drag_preview:Hide() end
+end
+
+function addon:begin_key_button_drag(button)
+    if InCombatLockdown() or not button then return end
+
+    self.key_button_drag = {
+        source = button,
+        sourceKey = get_button_binding_key(button),
+        binding = button.binding,
+        directBinding = not button.slot and button.binding and button.binding ~= "",
+        handled = false,
+    }
+
+    if button.slot then
+        self:handle_action_drag(button)
+    elseif self.key_button_drag.directBinding then
+        show_drag_preview(button)
+    end
+end
+
+function addon:complete_key_button_drop(target)
+    local drag = self.key_button_drag
+    if not target or (drag and drag.handled) then return false end
+
+    if drag and drag.directBinding then
+        local target_key = get_button_binding_key(target)
+        if not drag.sourceKey or not target_key or target_key == drag.sourceKey then return false end
+
+        local target_binding = GetBindingAction(target_key, true) or ""
+        SetBinding(target_key, drag.binding)
+        if target_binding ~= "" then
+            SetBinding(drag.sourceKey, target_binding)
+        else
+            SetBinding(drag.sourceKey)
+        end
+        SaveBindings(GetCurrentBindingSet())
+        drag.handled = true
+        self:refresh_keys()
+        return true
+    end
+
+    local cursor_kind = GetCursorInfo()
+    if cursor_kind and target.slot then
+        self:handle_action_drag(target)
+        if drag then drag.handled = true end
+        return true
+    elseif cursor_kind then
+        local target_key = get_button_binding_key(target)
+        local binding, label = self.ports.actions:GetCursorBinding()
+        if target_key and binding then
+            SetBinding(target_key, binding)
+            SaveBindings(GetCurrentBindingSet())
+            ClearCursor()
+            if drag then drag.handled = true end
+            self:refresh_keys()
+            print("KeyUI: Bound |cffa335ee" .. (label or binding) .. "|r to |cffff8000" .. target_key .. "|r")
+            return true
+        end
+    end
+    return false
+end
+
+function addon:finish_key_button_drag()
+    local drag = self.key_button_drag
+    if not drag then return end
+
+    if not drag.handled then
+        local target = find_keyui_button(self.ports.ui:GetMouseFocus())
+        if target and target ~= drag.source then
+            self:complete_key_button_drop(target)
+        end
+    end
+    hide_drag_preview()
+    self.key_button_drag = nil
+end
+
 -- Retrieves the binding action
 function addon:get_binding(raw_key)
     return GetBindingAction(self.current_modifier_string .. (raw_key or ""), true) or ""
@@ -3001,7 +3201,7 @@ function addon:update_assisted_combat_indicator(button, slot)
     if isAssistedCombat then
         if not button.assisted_combat_clip then
             -- Clip frame constrains the overlay to the icon area
-            local clip = CreateFrame("Frame", nil, button)
+            local clip = addon.ports.ui:CreateFrame("Frame", nil, button)
             clip:SetClipsChildren(true)
             clip:SetSize(button.icon:GetWidth(), button.icon:GetHeight())
             clip:SetPoint("CENTER", button, "CENTER", 0, 4)
@@ -3252,14 +3452,30 @@ end
 function addon:process_spell(spell_name, button)
     if not spell_name then return end
 
-    -- Retrieve and store the spell ID for cooldown tracking
-    local spellID = C_Spell.GetSpellIDForSpellIdentifier(spell_name)
+    local cached_spell
+    for _, tab_name in ipairs(addon.spells_tab_order or {}) do
+        for _, spell in ipairs((addon.spells and addon.spells[tab_name]) or {}) do
+            local ranked_name = spell.rank and spell.rank ~= ""
+                and (spell.name .. "(" .. spell.rank .. ")") or spell.name
+            local spaced_ranked_name = spell.rank and spell.rank ~= ""
+                and (spell.name .. " (" .. spell.rank .. ")") or spell.name
+            if spell.name == spell_name or ranked_name == spell_name or spaced_ranked_name == spell_name then
+                cached_spell = spell
+                break
+            end
+        end
+        if cached_spell then break end
+    end
+
+    local _, spell_icon, spellID = addon.ports.spells:GetInfo(spell_name)
+    if cached_spell then
+        spell_icon = cached_spell.icon or spell_icon
+        spellID = cached_spell.id or spellID
+        button.spell_book_slot = cached_spell.bookSlot
+    end
     if spellID then
         button.spellid = spellID
     end
-
-    -- Retrieve the spell's icon
-    local spell_icon = C_Spell.GetSpellTexture(spell_name)
 
     if spell_icon then
         button.icon:SetTexture(spell_icon)  -- Set the icon texture
@@ -3498,7 +3714,7 @@ function addon:sync_dragged_action_slots(button, slot_set)
     end
     -- Drag completion may equip/unequip items → refresh green equipped border
     -- and restore secure type attribute. Defer one frame for WoW to update slot data.
-    C_Timer.After(0, function()
+    addon.ports.timers:After(0, function()
         addon:refresh_equipped()
         if button and button.active_slot then
             addon:SetButtonActionSlot(button, button.active_slot)
@@ -3792,7 +4008,8 @@ end
 -- Handles processing for OPie ring bindings
 function addon:process_opie(button)
     -- Assign the OPie ring icon to the button
-    local opie_icon = "Interface\\AddOns\\OPie\\gfx\\opie_ring_icon.tga"
+    local opie_icon = addon.ports.opie and addon.ports.opie:GetIcon()
+        or "Interface\\AddOns\\OPie\\gfx\\icon.tga"
     button.icon:SetTexture(opie_icon)   -- Set the texture to the OPie ring icon
     button.icon:Show()                  -- Display the icon on the button
 end
@@ -4263,7 +4480,7 @@ local function flash_keypress_highlight(button, key)
     -- Cancel any existing ticker for this button
     if button.keypress_ticker then button.keypress_ticker:Cancel() end
     -- Poll IsKeyDown to hide highlight when key is released
-    button.keypress_ticker = C_Timer.NewTicker(KEYPRESS_POLL_INTERVAL, function()
+    button.keypress_ticker = addon.ports.timers:NewTicker(KEYPRESS_POLL_INTERVAL, function()
         if not IsKeyDown(key) then
             button.keypress_highlight:Hide()
             button.keypress_ticker:Cancel()
@@ -4280,6 +4497,13 @@ end
 
 -- Creates and manages the invisible input frame for keypress visualization
 function addon:enable_keypress_input()
+    if not addon.ports.ui:SupportsKeyboardPropagation() then
+        if addon.keypress_frame then
+            addon.keypress_frame:EnableKeyboard(false)
+            addon.keypress_frame:Hide()
+        end
+        return
+    end
     if addon.keypress_frame then
         if not addon.key_lookup then addon:build_key_lookup() end
         addon.keypress_frame:Show()
@@ -4287,7 +4511,7 @@ function addon:enable_keypress_input()
         return
     end
 
-    local frame = CreateFrame("Frame", "KeyUIKeypressFrame", UIParent)
+    local frame = addon.ports.ui:CreateFrame("Frame", "KeyUIKeypressFrame", UIParent)
     frame:SetSize(1, 1)
     frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
     frame:EnableKeyboard(true)
@@ -4306,7 +4530,7 @@ function addon:enable_keypress_input()
             addon:show_pushed_texture(primary_button.active_slot)
             -- Hide pushed texture when key is released
             if addon.pushed_ticker then addon.pushed_ticker:Cancel() end
-            addon.pushed_ticker = C_Timer.NewTicker(KEYPRESS_POLL_INTERVAL, function()
+            addon.pushed_ticker = addon.ports.timers:NewTicker(KEYPRESS_POLL_INTERVAL, function()
                 if not IsKeyDown(key) then
                     if addon.current_pushed_button then
                         addon.current_pushed_button:Hide()
@@ -4432,8 +4656,11 @@ function addon:handle_key_down(frame, key)
     end
 
     -- Set the label to the modifier and the pressed key
+    local mouse_button_number = type(key) == "string" and key:match("^Button(%d+)$")
     if key == "MiddleButton" then
         frame.raw_key = modifier .. "BUTTON3" -- Handle middle mouse button
+    elseif mouse_button_number then
+        frame.raw_key = modifier .. "BUTTON" .. mouse_button_number
     else
         frame.raw_key = modifier .. key       -- Set label to the pressed key with modifier
     end
@@ -4537,31 +4764,29 @@ local function build_spells_submenu(parentMenu)
     for _, tabName in ipairs(addon.spells_tab_order or {}) do
         local tabButton = parentMenu:CreateButton(tabName)
 
-        -- Add individual spells for this tab
-        for _, spell in pairs(addon.spells[tabName] or {}) do
+        -- Add individual spells for this tab. Anything enumerated from the
+        -- player spellbook is already known; Ascension does not consistently
+        -- return a spell ID or a useful IsSpellKnown result for custom spells.
+        for _, spell in ipairs(addon.spells[tabName] or {}) do
             local spell_name = spell.name
             local spell_id = spell.id
+            local book_slot = spell.bookSlot
+            local spell_rank = spell.rank
+            local spell_icon = spell.icon
+            if not spell_icon then
+                local spell_identifier = spell_name or spell_id or book_slot
+                local _, resolved_icon = addon.ports.spells:GetInfo(spell_identifier)
+                spell_icon = resolved_icon
+            end
 
-            -- IMPORTANT: Check spell_id exists BEFORE calling any APIs
-            if spell_id then
-                local is_known = false
-                local spell_icon = nil
-
-                -- Version-aware spell checking
-                if API_COMPAT.has_modern_spellbook then
-                    -- RETAIL: Use C_SpellBook API
-                    is_known = C_SpellBook.IsSpellKnown(spell_id)
-                    spell_icon = C_Spell.GetSpellTexture(spell_id)
-                elseif API_COMPAT.has_legacy_spell_api then
-                    -- ANNIVERSARY: Use legacy API
-                    is_known = IsSpellKnown(spell_id)
-                    spell_icon = GetSpellTexture(spell_id)
-                end
-
-            if is_known then
-                local spellButton = tabButton:CreateButton(spell_name, function()
+            if spell_name then
+                local spell_label = spell_rank and spell_rank ~= ""
+                    and (spell_name .. " (" .. spell_rank .. ")") or spell_name
+                local spell_binding_name = spell_rank and spell_rank ~= ""
+                    and (spell_name .. "(" .. spell_rank .. ")") or spell_name
+                local spellButton = tabButton:CreateButton(spell_label, function()
                     local key = addon.current_modifier_string .. (addon.current_clicked_key.raw_key or "")
-                    local spell = "Spell " .. spell_name
+                    local spell_binding = "SPELL " .. spell_binding_name
                     local binding_name = addon.current_clicked_key.readable_binding:GetText()
                     local actionbutton = addon.current_clicked_key.binding
                     local targetSlot = addon.current_slot or addon.action_slot_mapping[actionbutton]
@@ -4573,18 +4798,15 @@ local function build_spells_submenu(parentMenu)
                         end
 
                         -- Version-aware spell pickup
-                        if API_COMPAT.has_modern_spellbook then
-                            C_Spell.PickupSpell(spell_id)
-                        else
-                            PickupSpell(spell_id)  -- Legacy API
-                        end
+                        addon.ports.spells:Pickup(spell_id, book_slot, spell_name)
                         PlaceAction(targetSlot)
                         ClearCursor()
                         print("KeyUI: Bound |cffa335ee" .. spell_name .. "|r to |cffff8000" .. key .. "|r (" .. binding_name .. ")")
                     else
-                        SetBinding(key, spell)
+                        local bound = SetBindingSpell and SetBindingSpell(key, spell_binding_name)
+                        if not bound then SetBinding(key, spell_binding) end
                         SaveBindings(GetCurrentBindingSet())
-                        print("KeyUI: Bound |cffa335ee" .. spell_name .. "|r to |cffff8000" .. key .. "|r")
+                        print("KeyUI: Bound |cffa335ee" .. spell_label .. "|r to |cffff8000" .. key .. "|r")
                     end
                 end)
 
@@ -4603,7 +4825,6 @@ local function build_spells_submenu(parentMenu)
                     end)
                 end
             end
-            end  -- Close the new 'if spell_id then' block
         end
     end
 
@@ -4657,9 +4878,12 @@ end
 
 -- Helper function: Build macros submenu
 local function build_macros_submenu(parentMenu)
+    local account_macro_limit = tonumber(MAX_ACCOUNT_MACROS) or 36
+    local character_macro_limit = tonumber(MAX_CHARACTER_MACROS) or 18
+
     -- General Macros (1-MAX_ACCOUNT_MACROS)
     local generalMacroMenu = parentMenu:CreateButton("General Macro")
-    for i = 1, MAX_ACCOUNT_MACROS do
+    for i = 1, account_macro_limit do
         local macro_index = i
         local title, icon, _ = GetMacroInfo(macro_index)
         if title then
@@ -4667,7 +4891,7 @@ local function build_macros_submenu(parentMenu)
                 local actionbutton = addon.current_clicked_key.binding
                 local actionSlot = addon.current_slot or addon.action_slot_mapping[actionbutton]
                 local key = addon.current_modifier_string .. (addon.current_clicked_key.raw_key or "")
-                local command = "Macro " .. title
+                local command = "MACRO " .. title
                 local binding_name = addon.current_clicked_key.readable_binding:GetText()
 
                 if actionSlot then
@@ -4706,7 +4930,7 @@ local function build_macros_submenu(parentMenu)
 
     -- Player Macros (MAX_ACCOUNT_MACROS+1 to MAX_ACCOUNT_MACROS+MAX_CHARACTER_MACROS)
     local playerMacroMenu = parentMenu:CreateButton("Player Macro")
-    for i = MAX_ACCOUNT_MACROS + 1, MAX_ACCOUNT_MACROS + MAX_CHARACTER_MACROS do
+    for i = account_macro_limit + 1, account_macro_limit + character_macro_limit do
         local macro_index = i
         local title, icon, _ = GetMacroInfo(macro_index)
         if title then
@@ -4714,7 +4938,7 @@ local function build_macros_submenu(parentMenu)
                 local actionbutton = addon.current_clicked_key.binding
                 local actionSlot = addon.current_slot or addon.action_slot_mapping[actionbutton]
                 local key = addon.current_modifier_string .. (addon.current_clicked_key.raw_key or "")
-                local command = "Macro " .. title
+                local command = "MACRO " .. title
                 local binding_name = addon.current_clicked_key.readable_binding:GetText()
 
                 if actionSlot then
@@ -4757,19 +4981,14 @@ local function build_interface_bindings_submenu(parentMenu)
     local categories = {}       -- { [categoryKey] = { {command, readableName}, ... } }
     local category_order = {}   -- preserve WoW's category order
 
-    for i = 1, GetNumBindings() do
-        local command, category = GetBinding(i)
-        if command and category
-            and not command:find("HEADER_BLANK") and not category:find("HEADER_BLANK")
-            and not command:find("^PREFACE_") then
-            if not categories[category] then
-                categories[category] = {}
-                table.insert(category_order, category)
-            end
-            local readable = _G["BINDING_NAME_" .. command] or command
-            table.insert(categories[category], { command, readable })
+    addon.ports.actions:VisitBindings(function(category, command, readable)
+        if matches_opie_binding(command) then return end
+        if not categories[category] then
+            categories[category] = {}
+            table.insert(category_order, category)
         end
-    end
+        table.insert(categories[category], { command, readable })
+    end)
 
     for _, category in ipairs(category_order) do
         local categoryName = _G[category] or category
@@ -4789,6 +5008,63 @@ local function build_interface_bindings_submenu(parentMenu)
     end
 end
 
+local function add_menu_icon(menu_button, texture)
+    if not menu_button or not texture then return end
+    menu_button:AddInitializer(function(button)
+        if not button.AttachTexture then return end
+        local icon = button:AttachTexture()
+        icon:SetSize(16, 16)
+        icon:SetPoint("LEFT", button, "LEFT", 4, 0)
+        icon:SetTexture(texture)
+        if button.fontString then
+            button.fontString:ClearAllPoints()
+            button.fontString:SetPoint("LEFT", icon, "RIGHT", 4, 0)
+        end
+    end)
+end
+
+local function add_opie_bindings_menu(rootDescription)
+    local port = addon.ports.opie
+    if not port then return end
+
+    local available = port:IsAvailable()
+    if not available and not port:IsInstalled() then return end
+
+    local icon = port:GetIcon()
+    local opieMenu = rootDescription:CreateButton("OPie")
+    add_menu_icon(opieMenu, icon)
+    if not available then
+        opieMenu:CreateTitle("OPie is installed but not loaded")
+        return
+    end
+
+    local rings = {}
+    port:VisitRings(function(index, name, slices)
+        table.insert(rings, { index = index, name = name, slices = slices })
+    end)
+    if #rings == 0 then
+        opieMenu:CreateTitle("No bindable rings found")
+        return
+    end
+
+    for _, ring in ipairs(rings) do
+        local ring_index = ring.index
+        local ring_name = ring.name
+        local label = ring.slices > 0 and (ring_name .. " (" .. ring.slices .. ")") or ring_name
+        local ringButton = opieMenu:CreateButton(label, function()
+            local key = addon.current_modifier_string .. (addon.current_clicked_key.raw_key or "")
+            local ok, err = port:BindRing(ring_index, key)
+            if not ok then
+                print("KeyUI: " .. (err or "Unable to bind OPie ring."))
+                return
+            end
+            addon.ports.timers:After(0, function() addon:refresh_keys() end)
+            print("KeyUI: Bound OPie ring |cffa335ee" .. ring_name .. "|r to |cffff8000" .. key .. "|r")
+        end)
+        add_menu_icon(ringButton, icon)
+    end
+end
+
 -- Main context menu generator for MenuUtil
 function addon.context_menu_generator(owner, rootDescription)
     -- Spells submenu
@@ -4796,15 +5072,18 @@ function addon.context_menu_generator(owner, rootDescription)
     build_spells_submenu(spellsMenu)
 
     -- Macros submenu
-    local macrosMenu = rootDescription:CreateButton(_G["MACRO"])
+    local macrosMenu = rootDescription:CreateButton(_G["MACRO"] or "Macros")
     build_macros_submenu(macrosMenu)
 
+    -- OPie rings use OneRingLib's binding API rather than Blizzard SetBinding.
+    add_opie_bindings_menu(rootDescription)
+
     -- Interface Bindings submenu
-    local uiBindMenu = rootDescription:CreateButton(_G["INTERFACE_LABEL"])
+    local uiBindMenu = rootDescription:CreateButton(_G["INTERFACE_LABEL"] or "Interface")
     build_interface_bindings_submenu(uiBindMenu)
 
     -- Unbind action (direct button)
-    rootDescription:CreateButton(_G["UNBIND"], function()
+    rootDescription:CreateButton(_G["UNBIND"] or "Unbind", function()
         if addon.current_clicked_key.raw_key ~= "" then
             SetBinding(addon.current_modifier_string .. (addon.current_clicked_key.raw_key or ""))
             SaveBindings(GetCurrentBindingSet())
@@ -4815,7 +5094,7 @@ function addon.context_menu_generator(owner, rootDescription)
 end
 
 -- Event frame to handle all relevant events
-local eventFrame = CreateFrame("Frame")
+local eventFrame = addon.ports.ui:CreateFrame("Frame")
 local function reset_pending_updates()
     addon.pending = {
         bindings = false,
@@ -4860,11 +5139,7 @@ local function schedule_flush()
     end
 
     addon.flush_scheduled = true
-    if C_Timer and C_Timer.After then
-        C_Timer.After(0, flush_pending_updates)
-    else
-        flush_pending_updates()
-    end
+    addon.ports.timers:After(0, flush_pending_updates)
 end
 
 flush_pending_updates = function()
@@ -4948,7 +5223,7 @@ end
 -- Range indicator polling (0.1 s throttle, mirrors Blizzard Classic approach)
 do
     local t = 0
-    local f = CreateFrame("Frame")
+    local f = addon.ports.ui:CreateFrame("Frame")
     f:SetScript("OnUpdate", function(_, elapsed)
         t = t + elapsed
         if t >= 0.1 then
@@ -5016,7 +5291,12 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         refresh_loaded_integrations()
         initialize_keybind_patterns()
 
-        addon.class_name = UnitClassBase("player")
+        if UnitClassBase then
+            addon.class_name = UnitClassBase("player")
+        else
+            local _, class_token = UnitClass("player")
+            addon.class_name = class_token
+        end
         addon.bonusbar_offset = GetBonusBarOffset()
         addon.current_actionbar_page = GetActionBarPage()
 
@@ -5111,7 +5391,7 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         mark_pending("keys")
     elseif event == "ACTIONBAR_SLOT_CHANGED" then
         mark_slot_changed(...)
-        C_Timer.After(0, function() addon:refresh_equipped() end)
+        addon.ports.timers:After(0, function() addon:refresh_equipped() end)
     elseif event == "UPDATE_BINDINGS" or event == "BINDINGS_LOADED" then
         mark_pending("bindings")
     elseif event == "ACTIVE_TALENT_GROUP_CHANGED" then
@@ -5177,6 +5457,7 @@ local function print_keyui_command_help()
     print("KeyUI: /keyui perf [on|off|reset]")
     print("KeyUI: /keyui diag [limit]")
     print("KeyUI: /keyui diagreset")
+    print("KeyUI: To configure a hotkey, open KeyUI and right-click a displayed key.")
 end
 
 SlashCmdList["KeyUI"] = function(msg)

@@ -21,7 +21,7 @@ function addon:save_controller_position()
 end
 
 function addon:create_controller_frame()
-    local controller_frame = CreateFrame("Frame", "keyui_controller_frame", UIParent, "BackdropTemplate")
+    local controller_frame = addon.ports.ui:CreateFrame("Frame", "keyui_controller_frame", UIParent, "BackdropTemplate")
     addon.controller_frame = controller_frame
 
     -- Manage ESC key behavior based on the setting
@@ -119,7 +119,7 @@ function addon:create_controller_frame()
 
     -- Create the close tab button
     if USE_ATLAS then
-        controller_frame.close_button = CreateFrame("Button", nil, controller_frame, "PanelTopTabButtonTemplate")
+        controller_frame.close_button = addon.ports.ui:CreateFrame("Button", nil, controller_frame, "PanelTopTabButtonTemplate")
     else
         controller_frame.close_button = addon:CreateTopTabButton(controller_frame)
     end
@@ -160,7 +160,7 @@ function addon:create_controller_frame()
 
     -- Create the settings tab button
     if USE_ATLAS then
-        controller_frame.controls_button = CreateFrame("Button", nil, controller_frame, "PanelTopTabButtonTemplate")
+        controller_frame.controls_button = addon.ports.ui:CreateFrame("Button", nil, controller_frame, "PanelTopTabButtonTemplate")
     else
         controller_frame.controls_button = addon:CreateTopTabButton(controller_frame)
     end
@@ -226,7 +226,7 @@ function addon:create_controller_frame()
 
     -- Create the options tab button
     if USE_ATLAS then
-        controller_frame.options_button = CreateFrame("Button", nil, controller_frame, "PanelTopTabButtonTemplate")
+        controller_frame.options_button = addon.ports.ui:CreateFrame("Button", nil, controller_frame, "PanelTopTabButtonTemplate")
     else
         controller_frame.options_button = addon:CreateTopTabButton(controller_frame)
     end
@@ -286,7 +286,7 @@ end
 
 function addon:create_controller_image()
     -- Create controller_image as a child of controller_frame
-    local controller_image = CreateFrame("Frame", "keyui_controller_image", addon.controller_frame)
+    local controller_image = addon.ports.ui:CreateFrame("Frame", "keyui_controller_image", addon.controller_frame)
     addon.controller_image = controller_image
 
     -- Add to UISpecialFrames to allow closing with ESC key if the setting permits
@@ -554,7 +554,7 @@ function addon:create_controller_buttons(index)
     local templates = addon.VERSION.isRetail
         and "SecureActionButtonTemplate, ActionButtonSpellFXTemplate"
         or  "SecureActionButtonTemplate"
-    local controller_button = CreateFrame("CheckButton", name, addon.controller_frame, templates)
+    local controller_button = addon.ports.ui:CreateFrame("CheckButton", name, addon.controller_frame, templates)
 
     -- Add Background Texture
     local background = controller_button:CreateTexture(nil, "BACKGROUND")
@@ -574,7 +574,7 @@ function addon:create_controller_buttons(index)
 
     controller_button:SetMovable(true)
     controller_button:EnableMouse(true)
-    controller_button:EnableKeyboard(true)
+    controller_button:EnableKeyboard(false)
     controller_button:EnableGamePadButton(true)
 
     -- Match keyboard/mouse: release-only click + drag registration so dragging
@@ -588,7 +588,9 @@ function addon:create_controller_buttons(index)
     -- controller Keybind text string on the top right of the button (e.g. a-c-s-1)
     controller_button.short_key = controller_button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     controller_button.short_key:SetTextColor(1, 1, 1)
-    controller_button.short_key:SetScale(1.4)
+    if controller_button.short_key.SetScale then
+        controller_button.short_key:SetScale(1.4)
+    end
     -- controller_button.short_key:SetPoint("LEFT", controller_button, "RIGHT", 10, 0)
     -- controller_button.short_key:SetJustifyH("RIGHT")
     -- controller_button.short_key:SetJustifyV("TOP")
@@ -634,7 +636,7 @@ function addon:create_controller_buttons(index)
     controller_button.highlight:Hide()
 
     -- Keypress highlight border (brief glow when key is pressed)
-    controller_button.keypress_highlight = CreateFrame("Frame", nil, controller_button, "BackdropTemplate")
+    controller_button.keypress_highlight = addon.ports.ui:CreateFrame("Frame", nil, controller_button, "BackdropTemplate")
     controller_button.keypress_highlight:SetPoint("TOPLEFT", controller_button, "TOPLEFT", -3, 3)
     controller_button.keypress_highlight:SetPoint("BOTTOMRIGHT", controller_button, "BOTTOMRIGHT", 3, -3)
     controller_button.keypress_highlight:SetBackdrop({ edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 16 })
@@ -645,12 +647,12 @@ function addon:create_controller_buttons(index)
     controller_button:SetScript("OnEnter", function(self)
         addon.current_hovered_button = controller_button -- save the current hovered button to re-trigger tooltip
         addon:button_mouse_over(controller_button)
-        controller_button:EnableKeyboard(true)
-        controller_button:EnableMouseWheel(true)
-
         local active_slot = self.active_slot
 
         if addon.controller_locked == false and not addon.is_moving then
+
+            controller_button:EnableKeyboard(true)
+            controller_button:EnableMouseWheel(true)
 
             controller_button:SetScript("OnKeyDown", function(_, key)
                 addon:handle_key_down(addon.current_hovered_button, key)
@@ -687,15 +689,19 @@ function addon:create_controller_buttons(index)
 
     -- Drag start: pick up action from slot (locked mode only, outside combat).
     controller_button:SetScript("OnDragStart", function(self, mousebutton)
-        if addon.controller_locked ~= false and mousebutton == "LeftButton" then
-            addon:handle_action_drag(self)
+        if addon.controller_locked ~= false and (mousebutton == nil or mousebutton == "LeftButton") then
+            addon:begin_key_button_drag(self)
         end
+    end)
+
+    controller_button:SetScript("OnDragStop", function()
+        addon:finish_key_button_drag()
     end)
 
     -- Receive drag: place action into slot (locked mode only, outside combat).
     controller_button:SetScript("OnReceiveDrag", function(self)
         if addon.controller_locked ~= false then
-            addon:handle_action_drag(self)
+            addon:complete_key_button_drop(self)
         end
     end)
 
@@ -721,7 +727,7 @@ function addon:create_controller_buttons(index)
         elseif button == "RightButton" then
             addon.current_clicked_key = self    -- save the current clicked key
             addon.current_slot = self.slot      -- save the current clicked slot
-            MenuUtil.CreateContextMenu(self, addon.context_menu_generator)
+            addon.ports.ui:CreateContextMenu(self, addon.context_menu_generator)
         end
     end)
 
