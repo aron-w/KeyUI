@@ -81,6 +81,33 @@ local function to_legacy_menu(nodes)
     return menu
 end
 
+-- UIDropDownMenu has no scrolling support. Keep each level short enough to
+-- fit on the 3.3.5 client and continue long lists through adjacent submenus.
+local function paginate_menu_nodes(nodes, maximum_items)
+    for _, node in ipairs(nodes) do
+        if node.children and #node.children > 0 then
+            paginate_menu_nodes(node.children, maximum_items)
+        end
+    end
+
+    if #nodes <= maximum_items then return end
+
+    local overflow = {}
+    for index = maximum_items, #nodes do
+        table.insert(overflow, nodes[index])
+    end
+    for index = #nodes, maximum_items, -1 do
+        table.remove(nodes, index)
+    end
+
+    local more_label = _G.MORE or "More..."
+    if not more_label:find("%.%.%.$") then more_label = more_label .. "..." end
+    local more = create_menu_node(more_label, nil)
+    more.children = overflow
+    paginate_menu_nodes(more.children, maximum_items)
+    table.insert(nodes, more)
+end
+
 local function create_legacy_dropdown(name, parent)
     adapter.dropdown_count = (adapter.dropdown_count or 0) + 1
     name = name or ("KeyUILegacyDropdown" .. adapter.dropdown_count)
@@ -95,6 +122,7 @@ local function create_legacy_dropdown(name, parent)
         if button then button:SetScript("OnClick", function()
             local root = create_menu_node(nil, nil)
             initializer(self, root)
+            paginate_menu_nodes(root.children, 18)
             EasyMenu(to_legacy_menu(root.children), self, self, 0, 0, "MENU")
         end) end
     end
@@ -133,6 +161,7 @@ end
 function adapter.ui:CreateContextMenu(owner, initializer)
     local root = create_menu_node(nil, nil)
     initializer(owner, root)
+    paginate_menu_nodes(root.children, 18)
     if not adapter.context_menu then
         adapter.context_menu = CreateFrame("Frame", "KeyUILegacyContextMenu", UIParent, "UIDropDownMenuTemplate")
     end
