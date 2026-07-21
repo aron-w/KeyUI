@@ -4,6 +4,19 @@ local _, addon = ...
 -- context-menu code from depending on OPie's private tables or proxy frames.
 local opie = {}
 
+local function find_addon_name()
+    if IsAddOnLoaded and IsAddOnLoaded("OPie") then return "OPie" end
+    if not GetNumAddOns or not GetAddOnInfo then return nil end
+
+    for index = 1, GetNumAddOns() do
+        local name, title = GetAddOnInfo(index)
+        if type(name) == "string"
+            and (name:lower() == "opie" or (type(title) == "string" and title:lower() == "opie")) then
+            return name
+        end
+    end
+end
+
 local function get_library()
     local library = _G.OneRingLib
     if type(library) == "table"
@@ -15,7 +28,17 @@ local function get_library()
 end
 
 function opie:IsAvailable()
+    if get_library() then return true end
+
+    local addon_name = find_addon_name()
+    if addon_name and LoadAddOn and not (InCombatLockdown and InCombatLockdown()) then
+        pcall(LoadAddOn, addon_name)
+    end
     return get_library() ~= nil
+end
+
+function opie:IsInstalled()
+    return find_addon_name() ~= nil
 end
 
 function opie:VisitRings(visitor)

@@ -4984,17 +4984,27 @@ end
 
 local function add_opie_bindings_menu(rootDescription)
     local port = addon.ports.opie
-    if not port or not port:IsAvailable() then return end
+    if not port then return end
+
+    local available = port:IsAvailable()
+    if not available and not port:IsInstalled() then return end
+
+    local icon = port:GetIcon()
+    local opieMenu = rootDescription:CreateButton("OPie")
+    add_menu_icon(opieMenu, icon)
+    if not available then
+        opieMenu:CreateTitle("OPie is installed but not loaded")
+        return
+    end
 
     local rings = {}
     port:VisitRings(function(index, name, slices)
         table.insert(rings, { index = index, name = name, slices = slices })
     end)
-    if #rings == 0 then return end
-
-    local icon = port:GetIcon()
-    local opieMenu = rootDescription:CreateButton("OPie")
-    add_menu_icon(opieMenu, icon)
+    if #rings == 0 then
+        opieMenu:CreateTitle("No bindable rings found")
+        return
+    end
 
     for _, ring in ipairs(rings) do
         local ring_index = ring.index
