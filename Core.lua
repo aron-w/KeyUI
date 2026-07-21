@@ -2990,6 +2990,83 @@ function addon:handle_action_drag(button)
     addon:sync_dragged_action_slots(button, affected_slots)
 end
 
+local function get_button_binding_key(button)
+    if not button or not button.raw_key or button.raw_key == "" then return nil end
+    return addon.current_modifier_string .. button.raw_key
+end
+
+local function find_keyui_button(frame)
+    local current = frame
+    local depth = 0
+    while current and depth < 8 do
+        if current.raw_key and current.icon and current.readable_binding then return current end
+        if not current.GetParent then return nil end
+        local parent = current:GetParent()
+        if not parent or parent == current then return nil end
+        current = parent
+        depth = depth + 1
+    end
+end
+
+function addon:begin_key_button_drag(button)
+    if InCombatLockdown() or not button then return end
+
+    self.key_button_drag = {
+        source = button,
+        sourceKey = get_button_binding_key(button),
+        binding = button.binding,
+        directBinding = not button.slot and button.binding and button.binding ~= "",
+        handled = false,
+    }
+
+    if button.slot then
+        self:handle_action_drag(button)
+    end
+end
+
+function addon:complete_key_button_drop(target)
+    local drag = self.key_button_drag
+    if not target or (drag and drag.handled) then return false end
+
+    if drag and drag.directBinding then
+        local target_key = get_button_binding_key(target)
+        if not drag.sourceKey or not target_key or target_key == drag.sourceKey then return false end
+
+        local target_binding = GetBindingAction(target_key, true) or ""
+        SetBinding(target_key, drag.binding)
+        if target_binding ~= "" then
+            SetBinding(drag.sourceKey, target_binding)
+        else
+            SetBinding(drag.sourceKey)
+        end
+        SaveBindings(GetCurrentBindingSet())
+        drag.handled = true
+        self:refresh_keys()
+        return true
+    end
+
+    local cursor_kind = GetCursorInfo()
+    if cursor_kind and target.slot then
+        self:handle_action_drag(target)
+        if drag then drag.handled = true end
+        return true
+    end
+    return false
+end
+
+function addon:finish_key_button_drag()
+    local drag = self.key_button_drag
+    if not drag then return end
+
+    if not drag.handled then
+        local target = find_keyui_button(self.ports.ui:GetMouseFocus())
+        if target and target ~= drag.source then
+            self:complete_key_button_drop(target)
+        end
+    end
+    self.key_button_drag = nil
+end
+
 -- Retrieves the binding action
 function addon:get_binding(raw_key)
     return GetBindingAction(self.current_modifier_string .. (raw_key or ""), true) or ""

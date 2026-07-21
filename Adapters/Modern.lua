@@ -12,6 +12,10 @@ end
 function adapter.ui:SupportsKeyboardPropagation()
     return true
 end
+function adapter.ui:GetMouseFocus()
+    if GetMouseFoci then return GetMouseFoci() end
+    if GetMouseFocus then return GetMouseFocus() end
+end
 
 adapter.timers = {}
 function adapter.timers:After(delay, callback)

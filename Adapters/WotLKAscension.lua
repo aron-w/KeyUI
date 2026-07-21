@@ -142,6 +142,9 @@ end
 function adapter.ui:SupportsKeyboardPropagation()
     return false
 end
+function adapter.ui:GetMouseFocus()
+    return GetMouseFocus and GetMouseFocus() or nil
+end
 
 adapter.timers = {}
 function adapter.timers:After(delay, callback)
