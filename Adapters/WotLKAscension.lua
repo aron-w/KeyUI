@@ -43,7 +43,19 @@ local function create_menu_node(label, callback)
         table.insert(self.children, child)
         return child
     end
-    function node:AddInitializer() return self end
+    function node:AddInitializer(initializer)
+        if type(initializer) ~= "function" then return self end
+
+        -- MenuUtil initializers commonly attach an icon. Replay that small
+        -- subset against a description object so UIDropDownMenu can render it.
+        local texture = {}
+        function texture:SetSize() end
+        function texture:SetPoint() end
+        function texture:SetTexture(value) node.icon = value end
+        local button = { AttachTexture = function() return texture end }
+        pcall(initializer, button, node, nil)
+        return self
+    end
     function node:SetTooltip() return self end
     function node:DeactivateSubmenu() return self end
     function node:CreateDivider()
@@ -61,6 +73,7 @@ local function to_legacy_menu(nodes)
             isTitle = node.isTitle,
             disabled = node.disabled,
             notCheckable = true,
+            icon = node.icon,
         }
         if node.checked then
             entry.notCheckable = false

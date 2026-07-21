@@ -2371,12 +2371,22 @@ function addon:get_controls_frame()
 end
 
 function addon:create_tooltip()
-    -- Create the tooltip frame with the GlowBoxTemplate.
-    local keyui_tooltip_frame = addon.ports.ui:CreateFrame("Frame", nil, UIParent, "GlowBoxTemplate")
+    local keyui_tooltip_frame = addon.ports.ui:CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
     addon.keyui_tooltip_frame = keyui_tooltip_frame -- Save the tooltip to the addon table for reuse.
 
     keyui_tooltip_frame:SetFrameStrata("TOOLTIP")
     keyui_tooltip_frame:SetHeight(50)
+    keyui_tooltip_frame:SetClampedToScreen(true)
+    keyui_tooltip_frame:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    keyui_tooltip_frame:SetBackdropColor(0, 0, 0, 0.92)
+    keyui_tooltip_frame:SetBackdropBorderColor(0.55, 0.55, 0.55, 1)
 
     -- Add a text to the tooltip.
     keyui_tooltip_frame.key = keyui_tooltip_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -2413,6 +2423,7 @@ function addon:button_mouse_over(button)
     local short_modifier_string = (addon.current_modifier_string or "")
 
     -- Position the tooltip next to the hovered button
+    addon.keyui_tooltip_frame:ClearAllPoints()
     addon.keyui_tooltip_frame:SetPoint("BOTTOMLEFT", button, "BOTTOMRIGHT", 6, 5)
 
     -- Adjust the tooltip size and text positions for gamepad buttons
@@ -2496,6 +2507,16 @@ local specific_bindings = {
 }
 
 local fallback_binding_icon = "Interface\\Icons\\INV_Misc_Gear_01"
+local unbound_key_color = { 0.45, 0.45, 0.45 }
+
+local function set_key_label_bound_state(button, is_bound)
+    if not button.short_key then return end
+    if is_bound then
+        button.short_key:SetTextColor(1, 1, 1)
+    else
+        button.short_key:SetTextColor(unbound_key_color[1], unbound_key_color[2], unbound_key_color[3])
+    end
+end
 
 local function matches_opie_binding(binding)
     if type(binding) ~= "string" or binding == "" then
@@ -2538,6 +2559,7 @@ function addon:set_key(button)
 
     -- Loop through the keybind patterns and process the binding if the binding is not empty
     if binding ~= "" then
+        set_key_label_bound_state(button, true)
         local matched = false
         for pattern, handler in pairs(keybind_patterns) do
             if binding:find(pattern) then
@@ -2592,6 +2614,7 @@ function addon:set_key(button)
         -- Handle interface action labels
         addon:create_action_labels(binding, button)
     else
+        set_key_label_bound_state(button, false)
         -- Handle empty bindings if the option is enabled
         if keyui_settings.show_empty_binds then
             addon:update_empty_binds(button)
@@ -2906,7 +2929,7 @@ end
 function addon:UpdateButtonRange(button)
     if not button.short_key then return end
     if not keyui_settings.show_actionbar_mode or not button.active_slot then
-        button.short_key:SetTextColor(1, 1, 1)
+        set_key_label_bound_state(button, button.binding ~= nil and button.binding ~= "")
         return
     end
 
@@ -2934,9 +2957,9 @@ function addon:refresh_range()
 end
 
 function addon:clear_all_range()
-    for _, b in ipairs(addon.keys_keyboard)    do if b.short_key then b.short_key:SetTextColor(1, 1, 1) end end
-    for _, b in ipairs(addon.keys_mouse)       do if b.short_key then b.short_key:SetTextColor(1, 1, 1) end end
-    for _, b in ipairs(addon.keys_controller)  do if b.short_key then b.short_key:SetTextColor(1, 1, 1) end end
+    for _, b in ipairs(addon.keys_keyboard) do set_key_label_bound_state(b, b.binding ~= nil and b.binding ~= "") end
+    for _, b in ipairs(addon.keys_mouse) do set_key_label_bound_state(b, b.binding ~= nil and b.binding ~= "") end
+    for _, b in ipairs(addon.keys_controller) do set_key_label_bound_state(b, b.binding ~= nil and b.binding ~= "") end
 end
 
 -- Shows the pushed texture on the mapped action bar button when hovering a KeyUI button
