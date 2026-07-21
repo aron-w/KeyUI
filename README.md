@@ -32,7 +32,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete migration summary and current 
 
 To assign a global toggle hotkey, open **Main Menu → Key Bindings → KeyUI** and bind **Toggle KeyUI**.
 
-During combat, the global hotkey opens KeyUI as a dimmed, read-only binding inspector. Hover a key to see its tooltip; casting, dragging, right-click menus, layout editing, and settings controls stay disabled until combat ends. If **Combat** is enabled in KeyUI's frame menu, an already-open layout automatically switches into this preview mode when combat starts.
+During combat, the global hotkey opens KeyUI as a dimmed, read-only binding inspector. Hover a key to see its tooltip; casting, dragging, right-click menus, layout editing, and settings controls stay disabled until combat ends. Press the hotkey again—or **Escape** when KeyUI's ESC option is enabled—to close the preview. If **Combat** is enabled in KeyUI's frame menu, an already-open layout automatically switches into this preview mode when combat starts.
 
 Changes use the active Blizzard binding set and are saved through the normal WoW binding APIs.
 

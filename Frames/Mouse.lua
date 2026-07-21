@@ -129,6 +129,7 @@ function addon:create_mouse_image()
                     keyui_settings.close_on_esc = not keyui_settings.close_on_esc
                     addon:ApplyEscClose()
                     addon:UpdateAllToggleVisuals()
+                    addon:RefreshGlobalToggleSecureState()
                 end)
             esc:SetTooltip(function(tooltip)
                 GameTooltip_SetTitle(tooltip, "ESC")

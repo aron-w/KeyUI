@@ -360,7 +360,7 @@ local global_toggle_button = addon.ports.ui:CreateFrame(
     UIParent,
     "SecureHandlerClickTemplate,SecureHandlerStateTemplate"
 )
-global_toggle_button:SetAttribute("_enterpreview", [[
+local enter_combat_preview = [[
     local frame = self:GetFrameRef("KeyUIKeyboardFrame")
     if frame and frame:IsShown() then frame:SetAlpha(0.55) end
     frame = self:GetFrameRef("KeyUIMouseFrame")
@@ -401,9 +401,13 @@ global_toggle_button:SetAttribute("_enterpreview", [[
             end
         end
     end
+    if self:GetAttribute("KeyUICloseOnEscape") then
+        self:SetBindingClick(true, "ESCAPE", self, "LeftButton")
+    end
     self:SetAttribute("KeyUICombatPreview", true)
-]])
-global_toggle_button:SetAttribute("_exitpreview", [[
+]]
+local exit_combat_preview = [[
+    self:ClearBindings()
     local frame = self:GetFrameRef("KeyUIKeyboardFrame")
     if frame then frame:SetAlpha(1) end
     frame = self:GetFrameRef("KeyUIMouseFrame")
@@ -437,8 +441,8 @@ global_toggle_button:SetAttribute("_exitpreview", [[
         end
     end
     self:SetAttribute("KeyUICombatPreview", false)
-]])
-global_toggle_button:SetAttribute("_onclick", [[
+]]
+local combat_preview_click = [[
     local wasOpen = false
     local openedPreview = false
     local frame = self:GetFrameRef("KeyUIKeyboardFrame")
@@ -464,7 +468,7 @@ global_toggle_button:SetAttribute("_onclick", [[
     frame = self:GetFrameRef("KeyUIControllerImage")
     if frame and frame:IsShown() then frame:Hide() end
     if wasOpen and self:GetAttribute("KeyUICombatPreview") then
-        self:RunAttribute("_exitpreview")
+]] .. exit_combat_preview .. [[
     elseif not wasOpen and SecureCmdOptionParse("[combat] combat; nocombat") == "combat" then
         frame = self:GetFrameRef("KeyUIKeyboardFrame")
         if frame and self:GetAttribute("KeyUIShowKeyboard") then
@@ -485,12 +489,16 @@ global_toggle_button:SetAttribute("_onclick", [[
         end
         frame = self:GetFrameRef("KeyUIControllerImage")
         if frame and self:GetAttribute("KeyUIShowController") then frame:Show() end
-        if openedPreview then self:RunAttribute("_enterpreview") end
+        if openedPreview then
+]] .. enter_combat_preview .. [[
+        end
     end
     self:SetAttribute("KeyUIWasOpen", wasOpen)
     self:SetAttribute("KeyUIOpenedPreview", openedPreview)
-]])
-global_toggle_button:SetAttribute("_onstate-combat", [[
+]]
+global_toggle_button:SetAttribute("_onclick", combat_preview_click)
+
+local combat_preview_state = [[
     if newstate == "1" then
         local anyShown = false
         local frame = self:GetFrameRef("KeyUIKeyboardFrame")
@@ -501,7 +509,7 @@ global_toggle_button:SetAttribute("_onstate-combat", [[
         if frame and frame:IsShown() then anyShown = true end
 
         if anyShown and self:GetAttribute("KeyUIStayOpenInCombat") then
-            self:RunAttribute("_enterpreview")
+]] .. enter_combat_preview .. [[
         elseif anyShown then
             frame = self:GetFrameRef("KeyUIKeyboardFrame")
             if frame and frame:IsShown() then frame:Hide() end
@@ -515,9 +523,10 @@ global_toggle_button:SetAttribute("_onstate-combat", [[
             if frame and frame:IsShown() then frame:Hide() end
         end
     elseif self:GetAttribute("KeyUICombatPreview") then
-        self:RunAttribute("_exitpreview")
+]] .. exit_combat_preview .. [[
     end
-]])
+]]
+global_toggle_button:SetAttribute("_onstate-combat", combat_preview_state)
 global_toggle_button:HookScript("PostClick", function(self)
     if self:GetAttribute("KeyUIWasOpen") then
         addon:hide_all_frames()
@@ -552,6 +561,7 @@ function addon:RefreshGlobalToggleSecureState()
     global_toggle_button:SetAttribute("KeyUIShowMouse", keyui_settings.show_mouse == true)
     global_toggle_button:SetAttribute("KeyUIShowController", keyui_settings.show_controller == true)
     global_toggle_button:SetAttribute("KeyUIStayOpenInCombat", keyui_settings.stay_open_in_combat == true)
+    global_toggle_button:SetAttribute("KeyUICloseOnEscape", keyui_settings.close_on_esc == true)
 
     local devices = {
         { prefix = "KeyUIKeyboardKey", count = "KeyUIKeyboardKeyCount", keys = addon.keys_keyboard },
@@ -2340,6 +2350,7 @@ function addon:CreateLockToggleButtons(frame, frame_level, custom_font, use_bott
             keyui_settings.close_on_esc = not keyui_settings.close_on_esc
             addon:ApplyEscClose()
             addon:UpdateAllToggleVisuals()
+            addon:RefreshGlobalToggleSecureState()
         end,
         bg_btn
     )
@@ -2422,6 +2433,7 @@ function addon:CreateToggleMenuButton(frame, bg_setting)
                     keyui_settings.close_on_esc = not keyui_settings.close_on_esc
                     addon:ApplyEscClose()
                     addon:UpdateAllToggleVisuals()
+                    addon:RefreshGlobalToggleSecureState()
                 end)
             esc:SetTooltip(function(tooltip)
                 GameTooltip_SetTitle(tooltip, "ESC")
